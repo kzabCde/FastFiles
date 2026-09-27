@@ -103,9 +103,10 @@ test("burger menu and QR generator remain usable on mobile", async ({ page }) =>
   const drawer = page.getByTestId("navigation-drawer");
   await expect(drawer).toBeVisible();
   await assertNoOverflow(page);
-  await drawer.evaluate((element) => { element.scrollTop = element.scrollHeight; });
-  const qrButton = drawer.getByRole("button", { name: /QR Generator/i });
+  const qrButton = drawer.getByTestId("nav-qr-generator");
+  await qrButton.scrollIntoViewIfNeeded();
   await expect(qrButton).toBeVisible();
+  await expect(qrButton).toHaveAccessibleName("QR Generator");
   await qrButton.click();
   await expect(page.getByTestId("qr-generator")).toBeVisible();
   await expect(page.getByTestId("qr-preview")).toBeVisible();

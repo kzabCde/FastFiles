@@ -5,39 +5,12 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-      - name: Normalize v0.2 E2E source
-        if: github.event_name == 'pull_request'
-        env:
-          HEAD_BRANCH: ${{ github.head_ref }}
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('tests/v02.spec.ts')
-          s = p.read_text()
-          marker = r'\n\ntest("language can be switched after entering a workspace"'
-          if marker in s:
-              start = s.index(marker)
-              s = s[:start] + s[start:].replace(r'\n', '\n')
-              p.write_text(s)
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/v02.spec.ts
-          if ! git diff --cached --quiet; then
-            git commit -m "test: normalize v0.2 QA cases"
-            git push origin "HEAD:${HEAD_BRANCH}"
-          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22

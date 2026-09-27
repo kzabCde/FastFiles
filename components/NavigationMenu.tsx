@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { TOOLS } from "@/lib/tools";
+import { TOOLS, type ToolDefinition } from "@/lib/tools";
 import styles from "./NavigationMenu.module.css";
 
 type Language = "en" | "th";
 
-type Props = { language: Language; onSelectTool?: never; onOpenQr?: never };
+type Props = {
+  language: Language;
+  onSelectTool?: (tool: ToolDefinition) => void;
+  onOpenQr?: () => void;
+};
 
 const fileToolIds = new Set(["merge-pdf", "organize-pdf", "split-pdf", "page-numbers", "pdf-metadata", "pdf-to-images", "images-to-pdf", "watermark"]);
 const imageToolIds = new Set(["image-convert", "watermark"]);

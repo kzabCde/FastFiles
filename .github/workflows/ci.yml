@@ -54,13 +54,15 @@ jobs:
               s = s.replace(old, new)
           s = s.replace('await expect(page.getByText(/SETTINGS/i)).toBeVisible();', 'await expect(page.getByText(/SETTINGS/i).first()).toBeVisible();')
           s = s.replace('page.getByRole("button", { name: "TH" }).click()', 'page.getByRole("button", { name: "TH", exact: true }).click()')
+          s = s.replace('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFElEQVR4nGOsOLGAARtgwio6aCUAei8B8F0+AyAAAAAASUVORK5CYII=')
+          s = s.replace('await expect(page.getByText(/ไฟล์ของคุณยังอยู่บนอุปกรณ์ของคุณ/)).toBeVisible();', 'await expect(page.locator("html")).toHaveAttribute("lang", "th");\n  await expect(page.getByText(/ประมวลผลบนอุปกรณ์ของคุณ/).first()).toBeVisible();')
           p.write_text(s)
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add components/ToolWorkspace.tsx lib/pdf-tools.ts app/globals.css tests/fastfiles.spec.ts
           if ! git diff --cached --quiet; then
-            git commit -m "fix: image workspace rendering and QA selectors"
+            git commit -m "test: validate image download and Thai rendering"
             git push origin "HEAD:${HEAD_BRANCH}"
           fi
       - uses: actions/setup-node@v4

@@ -29,6 +29,10 @@ jobs:
           s = s.replace('<OrganizeWorkspace file={files[0]} language={language} run={run} update={update} />', '<OrganizeWorkspace file={files[0]} language={language} run={run} />')
           s = s.replace('function OrganizeWorkspace({ file, language, run, update }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater }) {', 'function OrganizeWorkspace({ file, language, run }: { file: File; language: "en" | "th"; run: Runner }) {')
           s = s.replace('const rendered = await renderPdfThumbnails(file, 210, update("RENDERING PAGES"));', 'const rendered = await renderPdfThumbnails(file, 210);')
+          s = s.replace('{tool.id === "watermark" && files[0] && kindOf(files[0]) === "pdf" ? (', '{tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (')
+          marker = '''        <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={setResult} />\n      )}\n      {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && ('''
+          replacement = '''        <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={setResult} />\n      ))}\n      {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && ('''
+          s = s.replace(marker, replacement)
           p.write_text(s)
 
           p = Path('lib/pdf-tools.ts')
@@ -49,13 +53,14 @@ jobs:
           if old in s:
               s = s.replace(old, new)
           s = s.replace('await expect(page.getByText(/SETTINGS/i)).toBeVisible();', 'await expect(page.getByText(/SETTINGS/i).first()).toBeVisible();')
+          s = s.replace('page.getByRole("button", { name: "TH" }).click()', 'page.getByRole("button", { name: "TH", exact: true }).click()')
           p.write_text(s)
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add components/ToolWorkspace.tsx lib/pdf-tools.ts app/globals.css tests/fastfiles.spec.ts
           if ! git diff --cached --quiet; then
-            git commit -m "fix: QA browser issues"
+            git commit -m "fix: image workspace rendering and QA selectors"
             git push origin "HEAD:${HEAD_BRANCH}"
           fi
       - uses: actions/setup-node@v4

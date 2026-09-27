@@ -25,7 +25,7 @@ export async function mergePdfs(files: File[], onProgress?: (done: number, total
     onProgress?.(fileIndex + 1, files.length);
   }
   const bytes = await output.save({ useObjectStreams: true });
-  return new Blob([bytes], { type: "application/pdf" });
+  return bytesToBlob(bytes, "application/pdf");
 }
 
 export async function extractPdfPages(file: File, pageIndices: number[]) {
@@ -36,7 +36,7 @@ export async function extractPdfPages(file: File, pageIndices: number[]) {
   const pages = await output.copyPages(source, unique);
   pages.forEach((page) => output.addPage(page));
   const bytes = await output.save({ useObjectStreams: true });
-  return new Blob([bytes], { type: "application/pdf" });
+  return bytesToBlob(bytes, "application/pdf");
 }
 
 export async function splitPdfIntoPages(file: File, onProgress?: (done: number, total: number) => void): Promise<ExportedFile[]> {
@@ -49,7 +49,7 @@ export async function splitPdfIntoPages(file: File, onProgress?: (done: number, 
     const [page] = await output.copyPages(source, [index]);
     output.addPage(page);
     const bytes = await output.save({ useObjectStreams: true });
-    results.push({ name: `${stripExtension(file.name)}-page-${String(index + 1).padStart(2, "0")}.pdf`, blob: new Blob([bytes], { type: "application/pdf" }) });
+    results.push({ name: `${stripExtension(file.name)}-page-${String(index + 1).padStart(2, "0")}.pdf`, blob: bytesToBlob(bytes, "application/pdf") });
     onProgress?.(index + 1, total);
   }
 
@@ -68,7 +68,7 @@ export async function organizePdf(file: File, pages: PdfPageState[]) {
   }
   if (!output.getPageCount()) throw new Error("A PDF needs at least one page.");
   const bytes = await output.save({ useObjectStreams: true });
-  return new Blob([bytes], { type: "application/pdf" });
+  return bytesToBlob(bytes, "application/pdf");
 }
 
 export async function watermarkPdf(file: File, text: string, opacity = 0.16) {
@@ -92,7 +92,7 @@ export async function watermarkPdf(file: File, text: string, opacity = 0.16) {
   });
 
   const bytes = await pdf.save({ useObjectStreams: true });
-  return new Blob([bytes], { type: "application/pdf" });
+  return bytesToBlob(bytes, "application/pdf");
 }
 
 async function imageBytesAsPng(file: File) {
@@ -136,7 +136,7 @@ export async function imagesToPdf(files: File[], onProgress?: (done: number, tot
   }
 
   const bytes = await pdf.save({ useObjectStreams: true });
-  return new Blob([bytes], { type: "application/pdf" });
+  return bytesToBlob(bytes, "application/pdf");
 }
 
 let pdfWorkerConfigured = false;
@@ -224,6 +224,12 @@ export function parsePageRange(input: string, pageCount: number) {
       }
     });
   return [...indices].sort((a, b) => a - b);
+}
+
+function bytesToBlob(bytes: Uint8Array, type: string) {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return new Blob([buffer], { type });
 }
 
 function stripExtension(name: string) {

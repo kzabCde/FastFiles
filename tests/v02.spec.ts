@@ -234,4 +234,56 @@ test("many-page PDF progressively renders thumbnails without console errors", as
   await expect(page.locator(".page-thumb img")).toHaveCount(24, { timeout: 45_000 });
   expect(errors).toEqual([]);
 });
-\n\ntest("language can be switched after entering a workspace", async ({ page }) => {\n  await page.goto("/");\n  await upload(page, [{ name: "workspace-language.png", mimeType: "image/png", buffer: png }]);\n  await page.getByRole("button", { name: /Image Converter/i }).first().click();\n  await expect(page.getByText("SETTINGS", { exact: true })).toBeVisible();\n  await page.getByRole("button", { name: "Switch to Thai" }).click();\n  await expect(page.locator("html")).toHaveAttribute("lang", "th");\n  await expect(page.getByText("การตั้งค่า", { exact: true })).toBeVisible();\n  await page.getByRole("button", { name: "Switch to English" }).click();\n  await expect(page.locator("html")).toHaveAttribute("lang", "en");\n  await expect(page.getByText("SETTINGS", { exact: true })).toBeVisible();\n});\n\ntest("partial image batch preserves successes and can retry only failed files", async ({ page }) => {\n  await page.goto("/");\n  await upload(page, [\n    { name: "success.png", mimeType: "image/png", buffer: png },\n    { name: "retry.png", mimeType: "image/png", buffer: png },\n  ]);\n  await page.getByRole("button", { name: /Image Converter/i }).first().click();\n\n  await page.evaluate(() => {\n    const original = HTMLCanvasElement.prototype.toBlob;\n    let calls = 0;\n    HTMLCanvasElement.prototype.toBlob = function(callback, type, quality) {\n      calls += 1;\n      if (calls === 2) {\n        callback(null);\n        return;\n      }\n      return original.call(this, callback, type, quality);\n    };\n  });\n\n  const firstDownload = page.waitForEvent("download");\n  await page.getByRole("button", { name: /PROCESS 2 FILES/i }).click();\n  await firstDownload;\n  const result = page.getByTestId("result-center");\n  await expect(result).toBeVisible();\n  await expect(result).toContainText("PARTIAL SUCCESS");\n  await expect(result).toContainText("success.webp");\n  await expect(result).toContainText("retry.png");\n  await expect(result.getByRole("button", { name: /Retry failed/i })).toBeVisible();\n\n  const retryDownload = page.waitForEvent("download");\n  await result.getByRole("button", { name: /Retry failed/i }).click();\n  const retried = await retryDownload;\n  expect(retried.suggestedFilename()).toMatch(/retry\.webp$/i);\n  await expect(page.getByTestId("result-center")).toContainText("RETRY COMPLETED");\n  await expect(page.getByTestId("result-center")).toContainText("retry.webp");\n});\n
+
+
+test("language can be switched after entering a workspace", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [{ name: "workspace-language.png", mimeType: "image/png", buffer: png }]);
+  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await expect(page.getByText("SETTINGS", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Switch to Thai" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "th");
+  await expect(page.getByText("การตั้งค่า", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Switch to English" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByText("SETTINGS", { exact: true })).toBeVisible();
+});
+
+test("partial image batch preserves successes and can retry only failed files", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [
+    { name: "success.png", mimeType: "image/png", buffer: png },
+    { name: "retry.png", mimeType: "image/png", buffer: png },
+  ]);
+  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+
+  await page.evaluate(() => {
+    const original = HTMLCanvasElement.prototype.toBlob;
+    let calls = 0;
+    HTMLCanvasElement.prototype.toBlob = function(callback, type, quality) {
+      calls += 1;
+      if (calls === 2) {
+        callback(null);
+        return;
+      }
+      return original.call(this, callback, type, quality);
+    };
+  });
+
+  const firstDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: /PROCESS 2 FILES/i }).click();
+  await firstDownload;
+  const result = page.getByTestId("result-center");
+  await expect(result).toBeVisible();
+  await expect(result).toContainText("PARTIAL SUCCESS");
+  await expect(result).toContainText("success.webp");
+  await expect(result).toContainText("retry.png");
+  await expect(result.getByRole("button", { name: /Retry failed/i })).toBeVisible();
+
+  const retryDownload = page.waitForEvent("download");
+  await result.getByRole("button", { name: /Retry failed/i }).click();
+  const retried = await retryDownload;
+  expect(retried.suggestedFilename()).toMatch(/retry\.webp$/i);
+  await expect(page.getByTestId("result-center")).toContainText("RETRY COMPLETED");
+  await expect(page.getByTestId("result-center")).toContainText("retry.webp");
+});

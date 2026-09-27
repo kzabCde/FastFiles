@@ -4,15 +4,37 @@
 
 FastFiles is a privacy-focused, local-first PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
 
-## v0.2.1 — QR Generator & Grouped Navigation
+## v0.2.1 — QR Generator, Dedicated Routes & Focused Image Tools
 
 ### Grouped navigation
 
-- Added a responsive burger menu to the main FastFiles header.
-- Tools are grouped into **File Tools**, **Image Tools** and **QR Code** so users do not have to scan one long utility list.
-- Selecting a file/image tool keeps the existing FastFiles file-picker and File Queue workflow.
-- QR Generator opens immediately because it does not require an uploaded file.
-- Privacy and About remain reachable from the navigation drawer.
+- The burger opens a responsive dropdown below the header.
+- Tools are grouped into **File Tools**, **Image Tools** and **QR Code**.
+- File/image menu entries open dedicated website routes instead of an in-page drawer workspace.
+- The homepage universal drag/drop workflow remains available.
+- Privacy and About remain reachable from the dropdown.
+
+### Focused Image Tools
+
+The Image Tools group is intentionally reduced to two primary workflows:
+
+1. **Image Editor** — conversion, resize, compression, crop, rotate and flip are handled in one live Canvas workspace.
+2. **Watermark** — a separate focused workflow for adding text watermarks with a live preview.
+
+Legacy `/tools/image-resize` and `/tools/image-compress` routes are kept internally for compatibility, but they are no longer advertised in navigation or smart tool search because those controls already exist in Image Editor.
+
+The Watermark image workspace now supports:
+
+- live watermark preview
+- 9 placement presets: corners, edges and center
+- text color
+- relative text size
+- opacity
+- edge margin
+- optional text shadow for readability
+- batch application to selected images
+- output format and quality controls
+- full-resolution export using the same watermark renderer as the preview
 
 ### QR Generator
 
@@ -65,15 +87,15 @@ The QR workspace supports Thai/English UI, Light/Dark/System themes and responsi
 
 Advanced PDF compression is intentionally **not** advertised in v0.2. The current `pdf-lib` architecture does not provide the kind of reliable content/image recompression expected from dedicated PDF optimizers; a future WASM-based implementation should be evaluated instead of presenting a fake compression button.
 
-### Image tools
+### Image processing engine
 
 - JPG / PNG / WebP conversion
 - AVIF output only when the current browser successfully reports support
-- Live Canvas editing for Image Convert, Resize, Compress and image Watermark workflows
+- Live Canvas editing
 - Crop presets: Original, 1:1, 4:3, 3:4, 16:9 and 9:16, with draggable crop repositioning
-- Live rotate, horizontal/vertical flip and text-watermark preview with adjustable opacity
+- Live rotate and horizontal/vertical flip
 - Preview uses a lightweight in-browser render while final export processes the original full-resolution source
-- Batch filmstrip preview; the current edit settings are applied consistently to all selected images
+- Batch filmstrip preview; current settings are applied consistently to all selected images
 - Resize presets: Original, 50%, 25%, 1080px, 1920px and custom dimensions
 - Preserve-aspect-ratio control
 - Quality-based compression with estimated size before export and actual size in Result Center
@@ -81,7 +103,7 @@ Advanced PDF compression is intentionally **not** advertised in v0.2. The curren
 - Retry failed batch items
 - Cancel between batch items without reloading the application
 
-The current crop handles are visual guides. v0.2 supports preset aspect ratios plus drag-to-reposition; arbitrary freeform corner-resizing is intentionally not claimed yet. Codec-quality controls affect the actual exported file, while the live canvas focuses on geometric edits and watermark placement rather than pretending to reproduce exact compression artifacts before encoding.
+The current crop handles are visual guides. v0.2 supports preset aspect ratios plus drag-to-reposition; arbitrary freeform corner-resizing is intentionally not claimed yet. Codec-quality controls affect the actual exported file, while the live canvas focuses on geometric edits rather than pretending to reproduce exact compression artifacts before encoding.
 
 ### Result Center
 
@@ -113,6 +135,7 @@ Image re-encoding uses browser Canvas APIs. Re-encoding commonly drops source me
 - HEIC/HEIF export is not part of v0.2.
 - Batch cancellation occurs between files; an individual Canvas/PDF operation that has already started may need to finish before cancellation takes effect.
 - Live crop currently supports aspect-ratio presets and repositioning, not arbitrary freeform crop resizing.
+- Watermark v0.2.1 is text-based; image/logo watermark uploads are not implemented yet.
 - Codec quality changes are reflected in estimated/output size; the preview is not intended to simulate exact JPEG/WebP/AVIF compression artifacts before export.
 - Copying a QR image depends on browser support for writing PNG blobs to the Clipboard API; PNG/SVG downloads remain available when image clipboard writes are unavailable.
 
@@ -133,33 +156,37 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright verifies Chromium, Firefox and WebKit. The suite covers File Queue intake/error states, mobile overflow, in-workspace TH/EN switching, partial batch retry, PDF page numbering, metadata handling, progressive PDF thumbnails, live image editing, grouped burger navigation, URL/Wi-Fi QR generation, PNG/SVG QR downloads, QR color updates, theme/language compatibility and mobile QR layout.
+Playwright verifies Chromium, Firefox and WebKit. The suite covers File Queue intake/error states, mobile overflow, in-workspace TH/EN switching, partial batch retry, PDF page numbering, metadata handling, progressive PDF thumbnails, live image editing, advanced image watermark controls, grouped tool dropdown navigation, dedicated tool pages, URL/Wi-Fi QR generation, PNG/SVG QR downloads, QR color updates, theme/language compatibility and mobile QR layout.
 
 ## Architecture
 
-- `app/` — Next.js App Router shell and visual system
-- `components/FastFilesApp.tsx` — landing, File Intake V2, discovery, theme/language and QR routing
-- `components/NavigationMenu.tsx` — grouped File/Image/QR burger navigation
+- `app/` — Next.js App Router shell and dedicated tool routes
+- `components/FastFilesApp.tsx` — landing, File Intake V2, discovery and theme/language state
+- `components/NavigationMenu.tsx` — grouped File/Image/QR dropdown navigation
+- `components/StandaloneToolPage.tsx` — dedicated file/image route intake shell
 - `components/QRGenerator.tsx` — local QR payload building, live preview and PNG/SVG export
 - `components/FileQueue.tsx` — queue status, add/remove/reorder UI
 - `components/ToolWorkspace.tsx` — shared tool routing, PDF workspaces and processing states
-- `components/LiveImageWorkspace.tsx` — live Canvas image editor, crop controls and batch preview
+- `components/LiveImageWorkspace.tsx` — consolidated live Image Editor plus focused image Watermark mode
 - `components/ResultCenter.tsx` — reusable single/batch output UI
 - `lib/file-intake.ts` — local validation, queue summaries and workload checks
 - `lib/pdf-tools.ts` — pdf-lib + bundled PDF.js rendering/processing
-- `lib/image-tools.ts` — full-resolution Canvas image export, crop geometry and partial batch recovery
-- `lib/tools.ts` — tool metadata, file detection and smart action filtering
+- `lib/image-tools.ts` — full-resolution Canvas export, crop geometry, watermark rendering and partial batch recovery
+- `lib/tools.ts` — tool metadata, legacy compatibility, file detection and smart action filtering
 - `lib/download.ts` — safe filenames, Blob downloads and ZIP creation
 
 ## Changelog
 
 ### 0.2.1
 
-- Added grouped burger navigation for File Tools, Image Tools and QR Code.
+- Added dropdown navigation with dedicated tool routes.
+- Reduced Image Tools to **Image Editor** and **Watermark**.
+- Consolidated convert, resize and compress discovery into Image Editor while keeping legacy routes compatible.
+- Expanded text watermarking with live 9-position placement, color, size, opacity, margin and shadow controls.
 - Added a browser-local QR Generator for Text, URL, Phone, Email, SMS and Wi-Fi.
 - Added live QR size, margin, correction-level and color controls.
 - Added QR PNG/SVG export and clipboard actions.
-- Added QR navigation and cross-browser E2E coverage.
+- Expanded image, watermark, navigation and QR cross-browser E2E coverage.
 
 ### 0.2.0
 
@@ -168,7 +195,7 @@ Playwright verifies Chromium, Firefox and WebKit. The suite covers File Queue in
 - Added Result Center and partial batch recovery.
 - Added PDF page numbering and metadata inspection/clearing.
 - Expanded PDF organizer controls and keyboard support.
-- Added a live Canvas image editor with crop presets/repositioning, rotate, flip and watermark preview.
+- Added a live Canvas image editor with crop presets/repositioning, rotate and flip.
 - Added image resize presets, optional aspect-ratio unlock, runtime-gated AVIF and batch cancellation/retry.
 - Added TH/EN switching inside active workspaces.
 - Hardened generated downloads and filenames.

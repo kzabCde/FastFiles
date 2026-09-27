@@ -57,7 +57,7 @@ test("landing page renders cleanly in English and Thai", async ({ page }) => {
   await assertNoHorizontalOverflow(page);
   await assertKeyTextNotClipped(page);
 
-  await page.getByRole("button", { name: "TH" }).click();
+  await page.getByRole("button", { name: "TH", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("จัดการไฟล์");
   await expect(page.getByText(/ไฟล์ของคุณยังอยู่บนอุปกรณ์ของคุณ/)).toBeVisible();
   await assertNoHorizontalOverflow(page);
@@ -72,7 +72,7 @@ test("mobile layout has no horizontal overflow and keeps upload reachable", asyn
   await assertNoHorizontalOverflow(page);
   await assertKeyTextNotClipped(page);
 
-  await page.getByRole("button", { name: "TH" }).click();
+  await page.getByRole("button", { name: "TH", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("จัดการไฟล์");
   await assertNoHorizontalOverflow(page);
   await assertKeyTextNotClipped(page);

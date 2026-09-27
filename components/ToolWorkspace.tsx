@@ -89,11 +89,11 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset }
       {tool.id === "split-pdf" && <SplitWorkspace file={files[0]} language={language} run={run} update={update} />}
       {tool.id === "images-to-pdf" && <ImagesToPdfWorkspace files={files} language={language} run={run} update={update} setResult={setResult} />}
       {tool.id === "pdf-to-images" && <PdfToImagesWorkspace file={files[0]} language={language} run={run} update={update} />}
-      {tool.id === "watermark" && files[0] && kindOf(files[0]) === "pdf" ? (
+      {tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (
         <PdfWatermarkWorkspace file={files[0]} language={language} run={run} />
       ) : (
         <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={setResult} />
-      )}
+      ))}
       {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && (
         <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={setResult} />
       )}

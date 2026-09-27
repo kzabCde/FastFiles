@@ -1,6 +1,6 @@
 {
   "name": "fastfiles",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -14,12 +14,14 @@
     "next": "^15.5.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "4.10.38",
+    "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.2"

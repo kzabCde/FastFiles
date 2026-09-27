@@ -7,7 +7,15 @@ export function safeFilename(filename: string, fallback = "fastfiles-export") {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/[. ]+$/, "");
-  return (normalized || fallback).slice(0, 180);
+  const safe = normalized || fallback;
+  if (safe.length <= 180) return safe;
+
+  const dot = safe.lastIndexOf(".");
+  const hasExtension = dot > 0 && safe.length - dot <= 16;
+  if (!hasExtension) return safe.slice(0, 180).replace(/[. ]+$/, "");
+  const extension = safe.slice(dot);
+  const base = safe.slice(0, dot).slice(0, Math.max(1, 180 - extension.length)).replace(/[. ]+$/, "");
+  return `${base}${extension}`;
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

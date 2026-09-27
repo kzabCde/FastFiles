@@ -87,3 +87,10 @@
   .preset-row { overflow-x:auto; flex-wrap:nowrap; padding-bottom:3px; }
   .preset-row button { flex:0 0 auto; }
 }
+
+.workspace-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.workspace-language { flex: 0 0 auto; }
+@media (max-width: 640px) {
+  .workspace-head-actions { gap: 4px; }
+  .workspace-head-actions .text-button { padding-inline: 6px; }
+}

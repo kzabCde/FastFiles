@@ -31,6 +31,7 @@ type Props = {
   language: "en" | "th";
   onBack: () => void;
   onReset: () => void;
+  onToggleLanguage: () => void;
 };
 
 type JobStatus = "idle" | "ready" | "processing" | "success" | "partial-success" | "failed" | "cancelled";
@@ -60,7 +61,7 @@ function Progress({ value, language }: { value: ProgressState; language: "en" | 
   );
 }
 
-export default function ToolWorkspace({ tool, files, language, onBack, onReset }: Props) {
+export default function ToolWorkspace({ tool, files, language, onBack, onReset, onToggleLanguage }: Props) {
   const [progress, setProgress] = useState<ProgressState>(null);
   const [error, setError] = useState("");
   const [result, setResult] = useState<WorkspaceResult | null>(null);
@@ -99,7 +100,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset }
       <header className="workspace-head">
         <button className="text-button" onClick={onBack} disabled={busy}>← {language === "th" ? "เครื่องมือ" : "TOOLS"}</button>
         <div><span className="eyebrow">FASTFILES / {tool.short}</span><h1>{title}</h1></div>
-        <button className="text-button" onClick={onReset} disabled={busy}>{language === "th" ? "ไฟล์ใหม่" : "NEW FILES"}</button>
+        <div className="workspace-head-actions"><button className="chip-button workspace-language" onClick={onToggleLanguage} disabled={busy} aria-label={language === "en" ? "Switch to Thai" : "Switch to English"}>{language === "en" ? "TH" : "EN"}</button><button className="text-button" onClick={onReset} disabled={busy}>{language === "th" ? "ไฟล์ใหม่" : "NEW FILES"}</button></div>
       </header>
 
       {tool.id === "merge-pdf" && <MergeWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}

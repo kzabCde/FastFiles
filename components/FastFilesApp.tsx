@@ -164,7 +164,7 @@ export default function FastFilesApp() {
   };
 
   if (activeTool && files.length) {
-    return <ToolWorkspace tool={activeTool} files={files} language={language} onBack={() => setActiveTool(null)} onReset={reset} />;
+    return <ToolWorkspace tool={activeTool} files={files} language={language} onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")} onBack={() => setActiveTool(null)} onReset={reset} />;
   }
 
   return (

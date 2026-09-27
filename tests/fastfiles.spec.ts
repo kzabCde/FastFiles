@@ -4,7 +4,7 @@ import JSZip from "jszip";
 import fs from "node:fs/promises";
 
 const onePixelPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
+  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFElEQVR4nGOsOLGAARtgwio6aCUAei8B8F0+AyAAAAAASUVORK5CYII=",
   "base64",
 );
 
@@ -59,7 +59,8 @@ test("landing page renders cleanly in English and Thai", async ({ page }) => {
 
   await page.getByRole("button", { name: "TH", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("จัดการไฟล์");
-  await expect(page.getByText(/ไฟล์ของคุณยังอยู่บนอุปกรณ์ของคุณ/)).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "th");
+  await expect(page.getByText(/ประมวลผลบนอุปกรณ์ของคุณ/).first()).toBeVisible();
   await assertNoHorizontalOverflow(page);
   await assertKeyTextNotClipped(page);
 });

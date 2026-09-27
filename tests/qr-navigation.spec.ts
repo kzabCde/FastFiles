@@ -30,7 +30,10 @@ test("burger menu opens as a dropdown with File, Image and QR groups", async ({ 
   await expect(dropdown.getByRole("heading", { name: "Image Tools" })).toBeVisible();
   await expect(dropdown.getByRole("heading", { name: "QR Code" })).toBeVisible();
   await expect(dropdown.getByRole("link", { name: /Merge PDF/i })).toBeVisible();
-  await expect(dropdown.getByRole("link", { name: /Image Converter/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /^Image Editor$/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /^Watermark$/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /Resize Image/i })).toHaveCount(0);
+  await expect(dropdown.getByRole("link", { name: /Compress Image/i })).toHaveCount(0);
   await expect(dropdown.getByRole("link", { name: /QR Generator/i })).toBeVisible();
 
   await menu.click();
@@ -47,9 +50,9 @@ test("file and image menu items open dedicated pages", async ({ page }) => {
   await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible();
 
   await page.getByRole("button", { name: "Open tools menu" }).click();
-  await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Image Converter" }).click();
+  await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Image Editor" }).click();
   await expect(page).toHaveURL(/\/tools\/image-convert$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Image Converter" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Image Editor" })).toBeVisible();
   await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible();
 });
 

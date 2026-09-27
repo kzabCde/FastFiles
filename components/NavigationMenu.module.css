@@ -1,0 +1,31 @@
+.root { position: relative; display: grid; place-items: center; }
+.menuButton { width: 38px; height: 38px; display: grid; align-content: center; gap: 4px; padding: 0 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--text); box-shadow: 0 1px 0 rgba(255,255,255,.5) inset; }
+.menuButton span { display: block; width: 100%; height: 1.5px; border-radius: 999px; background: currentColor; transition: transform .18s ease; }
+.backdrop { position: fixed; inset: 0; z-index: 90; border: 0; background: rgba(5, 8, 6, .34); backdrop-filter: blur(5px); }
+.drawer { position: fixed; z-index: 100; top: 12px; bottom: 12px; left: 12px; width: min(440px, calc(100vw - 24px)); overflow: auto; padding: 20px; border: 1px solid var(--line); border-radius: 24px; background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--text); box-shadow: 0 30px 90px rgba(0,0,0,.24); animation: enter .2s ease both; }
+@keyframes enter { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+.drawerHead { min-height: 54px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+.drawerHead > div { display: grid; gap: 5px; }
+.drawerHead span { color: var(--muted); font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+.drawerHead strong { font-size: 20px; letter-spacing: -.035em; }
+.drawerHead button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--text); font-size: 20px; }
+.sections { display: grid; gap: 24px; padding: 22px 0; }
+.sections section { display: grid; grid-template-columns: 28px 1fr; gap: 0 10px; }
+.kicker { grid-row: 1 / span 2; color: var(--accent-ink); font: 700 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; padding-top: 6px; }
+.sections h2 { margin: 0 0 9px; font-size: 15px; letter-spacing: -.02em; }
+.sections section > div { grid-column: 2; display: grid; }
+.sections section > div button { min-height: 42px; padding: 0 3px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; font-size: 12px; }
+.sections section > div button:hover { color: var(--accent-ink); }
+.sections section > div button b { color: var(--muted); font-size: 12px; font-weight: 500; }
+.bottomLinks { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.bottomLinks a { font-size: 10px; font-weight: 700; }
+.bottomLinks span { margin-left: auto; color: var(--muted); font-size: 9px; }
+
+@media (max-width: 680px) {
+  .menuButton { width: 34px; height: 34px; border-radius: 10px; padding-inline: 9px; }
+  .drawer { top: 8px; bottom: 8px; left: 8px; width: calc(100vw - 16px); padding: 17px; border-radius: 20px; }
+  .sections { gap: 20px; }
+  .bottomLinks span { width: 100%; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) { .drawer { animation: none; } }

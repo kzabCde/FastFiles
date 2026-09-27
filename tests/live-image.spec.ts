@@ -15,7 +15,7 @@ async function assertNoOverflow(page: Page) {
 test("live image editor updates crop and transforms immediately", async ({ page }) => {
   await page.goto("/");
   await upload(page, [{ name: "live-edit.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
 
   const editor = page.getByTestId("live-image-editor");
   const preview = page.getByTestId("live-image-preview");
@@ -35,7 +35,7 @@ test("live image editor updates crop and transforms immediately", async ({ page 
 test("live crop ratio is preserved in the exported PNG", async ({ page }) => {
   await page.goto("/");
   await upload(page, [{ name: "crop-export.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
 
   await page.getByRole("button", { name: "4:3", exact: true }).click();
   await page.getByLabel("FORMAT").selectOption("image/png");
@@ -54,11 +54,40 @@ test("live crop ratio is preserved in the exported PNG", async ({ page }) => {
   expect(width / height).toBeCloseTo(4 / 3, 1);
 });
 
+test("advanced watermark updates live position, color and export", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [{ name: "watermark.png", mimeType: "image/png", buffer: png }]);
+  await page.getByRole("button", { name: /^Watermark$/i }).first().click();
+
+  const workspace = page.getByTestId("watermark-image-editor");
+  const preview = page.getByTestId("live-image-preview");
+  await expect(workspace).toBeVisible();
+  await expect(page.getByText("WATERMARK SETTINGS", { exact: true })).toBeVisible();
+  await page.getByLabel("Watermark text").fill("qreview");
+  await page.getByRole("button", { name: "Top left" }).click();
+  await page.getByLabel("Watermark color").evaluate((element) => {
+    const input = element as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "#00ff88");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await expect(preview).toHaveAttribute("data-watermark-position", "top-left");
+  await expect(preview).toHaveAttribute("data-watermark-color", "#00ff88");
+  await expect(preview).toHaveAttribute("data-watermark-text", "qreview");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /WATERMARK IMAGE/i }).click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  expect((await fs.stat(path!)).size).toBeGreaterThan(0);
+});
+
 test("live editor stays usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await upload(page, [{ name: "mobile-live.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Resize Image/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
 
   await expect(page.getByTestId("live-image-editor")).toBeVisible();
   await page.getByRole("button", { name: "9:16", exact: true }).click();

@@ -2,6 +2,8 @@ export type ToolId =
   | "merge-pdf"
   | "organize-pdf"
   | "split-pdf"
+  | "page-numbers"
+  | "pdf-metadata"
   | "images-to-pdf"
   | "pdf-to-images"
   | "image-convert"
@@ -18,86 +20,27 @@ export type ToolDefinition = {
   short: string;
   accepts: Array<"pdf" | "image">;
   aliases: string[];
+  multiple?: boolean;
 };
 
 export const TOOLS: ToolDefinition[] = [
-  {
-    id: "merge-pdf",
-    label: "Merge PDF",
-    thai: "รวม PDF",
-    short: "MERGE",
-    accepts: ["pdf"],
-    aliases: ["merge pdf", "combine pdf", "join pdf", "รวม pdf", "รวมไฟล์ pdf"],
-  },
-  {
-    id: "organize-pdf",
-    label: "Organize PDF",
-    thai: "จัดหน้า PDF",
-    short: "ORGANIZE",
-    accepts: ["pdf"],
-    aliases: ["organize pdf", "reorder pages", "delete page", "rotate page", "จัดหน้า pdf", "เรียงหน้า"],
-  },
-  {
-    id: "split-pdf",
-    label: "Split / Extract PDF",
-    thai: "แยก / ดึงหน้า PDF",
-    short: "SPLIT",
-    accepts: ["pdf"],
-    aliases: ["split pdf", "extract pages", "separate pdf", "แยก pdf", "ดึงหน้า pdf"],
-  },
-  {
-    id: "images-to-pdf",
-    label: "Images to PDF",
-    thai: "รูปภาพเป็น PDF",
-    short: "IMAGE → PDF",
-    accepts: ["image"],
-    aliases: ["jpg to pdf", "png to pdf", "images to pdf", "รูปเป็น pdf", "ภาพเป็น pdf"],
-  },
-  {
-    id: "pdf-to-images",
-    label: "PDF to Images",
-    thai: "PDF เป็นรูปภาพ",
-    short: "PDF → IMAGE",
-    accepts: ["pdf"],
-    aliases: ["pdf to jpg", "pdf to png", "pdf to image", "pdf เป็นรูป", "แปลง pdf เป็นรูป"],
-  },
-  {
-    id: "image-convert",
-    label: "Image Converter",
-    thai: "แปลงไฟล์รูป",
-    short: "CONVERT",
-    accepts: ["image"],
-    aliases: ["jpg to webp", "png to jpg", "convert image", "แปลงรูป", "แปลงไฟล์ภาพ"],
-  },
-  {
-    id: "image-resize",
-    label: "Resize Image",
-    thai: "ปรับขนาดรูป",
-    short: "RESIZE",
-    accepts: ["image"],
-    aliases: ["resize image", "make image smaller", "ปรับขนาดรูป", "ลดขนาดรูป"],
-  },
-  {
-    id: "image-compress",
-    label: "Compress Image",
-    thai: "บีบอัดรูป",
-    short: "COMPRESS",
-    accepts: ["image"],
-    aliases: ["compress image", "make image smaller", "reduce image size", "บีบอัดรูป", "ลดไฟล์รูป"],
-  },
-  {
-    id: "watermark",
-    label: "Watermark",
-    thai: "ใส่ลายน้ำ",
-    short: "WATERMARK",
-    accepts: ["pdf", "image"],
-    aliases: ["watermark pdf", "watermark image", "add watermark", "ลายน้ำ", "ใส่ลายน้ำ"],
-  },
+  { id: "merge-pdf", label: "Merge PDF", thai: "รวม PDF", short: "MERGE", accepts: ["pdf"], multiple: true, aliases: ["merge pdf", "combine pdf", "join pdf", "รวม pdf", "รวมไฟล์ pdf"] },
+  { id: "organize-pdf", label: "Organize PDF", thai: "จัดหน้า PDF", short: "ORGANIZE", accepts: ["pdf"], aliases: ["organize pdf", "reorder pages", "delete page", "duplicate page", "rotate page", "จัดหน้า pdf", "เรียงหน้า"] },
+  { id: "split-pdf", label: "Split / Extract PDF", thai: "แยก / ดึงหน้า PDF", short: "SPLIT", accepts: ["pdf"], aliases: ["split pdf", "extract pages", "separate pdf", "แยก pdf", "ดึงหน้า pdf"] },
+  { id: "page-numbers", label: "Add Page Numbers", thai: "ใส่เลขหน้า PDF", short: "NUMBER", accepts: ["pdf"], aliases: ["page numbers", "number pdf", "add page number", "เลขหน้า", "ใส่เลขหน้า pdf"] },
+  { id: "pdf-metadata", label: "PDF Metadata", thai: "ข้อมูล PDF", short: "METADATA", accepts: ["pdf"], aliases: ["pdf metadata", "document info", "remove metadata", "ข้อมูล pdf", "ลบ metadata"] },
+  { id: "images-to-pdf", label: "Images to PDF", thai: "รูปภาพเป็น PDF", short: "IMAGE → PDF", accepts: ["image"], multiple: true, aliases: ["jpg to pdf", "png to pdf", "images to pdf", "รูปเป็น pdf", "ภาพเป็น pdf"] },
+  { id: "pdf-to-images", label: "PDF to Images", thai: "PDF เป็นรูปภาพ", short: "PDF → IMAGE", accepts: ["pdf"], aliases: ["pdf to jpg", "pdf to png", "pdf to image", "pdf เป็นรูป", "แปลง pdf เป็นรูป"] },
+  { id: "image-convert", label: "Image Converter", thai: "แปลงไฟล์รูป", short: "CONVERT", accepts: ["image"], multiple: true, aliases: ["jpg to webp", "png to jpg", "convert image", "แปลงรูป", "แปลงไฟล์ภาพ"] },
+  { id: "image-resize", label: "Resize Image", thai: "ปรับขนาดรูป", short: "RESIZE", accepts: ["image"], multiple: true, aliases: ["resize image", "make image smaller", "ปรับขนาดรูป", "ลดขนาดรูป"] },
+  { id: "image-compress", label: "Compress Image", thai: "บีบอัดรูป", short: "COMPRESS", accepts: ["image"], multiple: true, aliases: ["compress image", "make image smaller", "reduce image size", "บีบอัดรูป", "ลดไฟล์รูป"] },
+  { id: "watermark", label: "Watermark", thai: "ใส่ลายน้ำ", short: "WATERMARK", accepts: ["pdf", "image"], aliases: ["watermark pdf", "watermark image", "add watermark", "ลายน้ำ", "ใส่ลายน้ำ"] },
 ];
 
 export function kindOf(file: File): "pdf" | "image" | "unsupported" {
-  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "pdf";
-  if (file.type.startsWith("image/")) return "image";
+  const name = file.name.toLowerCase();
+  if (file.type === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (["image/jpeg", "image/png", "image/webp"].includes(file.type) || /\.(jpe?g|png|webp)$/i.test(name)) return "image";
   return "unsupported";
 }
 
@@ -111,9 +54,14 @@ export function groupKind(files: File[]): FileKind {
 
 export function toolsFor(files: File[]): ToolDefinition[] {
   const kind = groupKind(files);
-  if (kind === "pdf") return TOOLS.filter((tool) => tool.accepts.includes("pdf"));
-  if (kind === "image") return TOOLS.filter((tool) => tool.accepts.includes("image"));
-  return TOOLS;
+  if (kind === "mixed" || kind === "unsupported") return [];
+  const count = files.length;
+  return TOOLS.filter((tool) => {
+    if (!tool.accepts.includes(kind)) return false;
+    if (tool.id === "merge-pdf" && count < 2) return false;
+    if (kind === "pdf" && count > 1 && tool.id !== "merge-pdf") return false;
+    return true;
+  });
 }
 
 export function searchTools(query: string): ToolDefinition[] {

@@ -1,4 +1,5 @@
 export type ImageFormat = "image/jpeg" | "image/png" | "image/webp" | "image/avif";
+export type WatermarkPosition = "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
 
 export type ImageProcessOptions = {
   format: ImageFormat;
@@ -15,6 +16,11 @@ export type ImageProcessOptions = {
   flipY?: boolean;
   watermark?: string;
   watermarkOpacity?: number;
+  watermarkColor?: string;
+  watermarkSize?: number;
+  watermarkMargin?: number;
+  watermarkPosition?: WatermarkPosition;
+  watermarkShadow?: boolean;
   preserveAspect?: boolean;
 };
 
@@ -110,6 +116,49 @@ export async function supportsImageFormat(type: ImageFormat) {
   return blob?.type === type;
 }
 
+export function drawTextWatermark(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  text: string,
+  options: Pick<ImageProcessOptions, "watermarkOpacity" | "watermarkColor" | "watermarkSize" | "watermarkMargin" | "watermarkPosition" | "watermarkShadow">,
+) {
+  const value = text.trim();
+  if (!value || !width || !height) return;
+
+  const opacity = Math.min(1, Math.max(0.05, options.watermarkOpacity ?? 0.38));
+  const sizeRatio = Math.min(0.22, Math.max(0.02, options.watermarkSize ?? 0.055));
+  const marginRatio = Math.min(0.2, Math.max(0, options.watermarkMargin ?? 0.035));
+  const position = options.watermarkPosition ?? "bottom-right";
+  const fontSize = Math.max(12, Math.round(Math.min(width, height) * sizeRatio));
+  const margin = Math.max(4, Math.round(Math.min(width, height) * marginRatio));
+  const maxWidth = Math.max(1, width - margin * 2);
+
+  let x = width / 2;
+  let y = height / 2;
+  let align: CanvasTextAlign = "center";
+  let baseline: CanvasTextBaseline = "middle";
+
+  if (position.endsWith("left")) { x = margin; align = "left"; }
+  if (position.endsWith("right")) { x = width - margin; align = "right"; }
+  if (position.startsWith("top")) { y = margin; baseline = "top"; }
+  if (position.startsWith("bottom")) { y = height - margin; baseline = "bottom"; }
+
+  context.save();
+  context.globalAlpha = opacity;
+  context.font = `700 ${fontSize}px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+  context.textAlign = align;
+  context.textBaseline = baseline;
+  context.fillStyle = options.watermarkColor || "#141410";
+  if (options.watermarkShadow) {
+    context.shadowColor = "rgba(0, 0, 0, 0.45)";
+    context.shadowBlur = Math.max(2, Math.round(fontSize * 0.14));
+    context.shadowOffsetY = Math.max(1, Math.round(fontSize * 0.05));
+  }
+  context.fillText(value, x, y, maxWidth);
+  context.restore();
+}
+
 export async function processImage(file: File, options: ImageProcessOptions): Promise<ProcessedImage> {
   if (file.size <= 0) throw new Error("The image is empty.");
   const source = await loadImage(file);
@@ -160,16 +209,7 @@ export async function processImage(file: File, options: ImageProcessOptions): Pr
     context.drawImage(source, -original.width / 2, -original.height / 2, original.width, original.height);
     context.restore();
 
-    if (options.watermark?.trim()) {
-      context.save();
-      const fontSize = Math.max(16, Math.round(Math.min(canvas.width, canvas.height) * 0.055));
-      context.font = `700 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
-      context.textAlign = "right";
-      context.textBaseline = "bottom";
-      context.fillStyle = `rgba(20, 20, 16, ${Math.min(1, Math.max(0.05, options.watermarkOpacity ?? 0.38))})`;
-      context.fillText(options.watermark.trim(), canvas.width - fontSize * 0.65, canvas.height - fontSize * 0.55);
-      context.restore();
-    }
+    if (options.watermark?.trim()) drawTextWatermark(context, canvas.width, canvas.height, options.watermark, options);
 
     const blob = await toBlob(canvas, options.format, options.quality);
     if (!blob.size) throw new Error("The browser produced an empty image.");

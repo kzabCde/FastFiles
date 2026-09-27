@@ -25,6 +25,9 @@
   .menuButton { width: 34px; height: 34px; border-radius: 10px; padding-inline: 9px; }
   .drawer { top: 8px; bottom: 8px; left: 8px; width: calc(100vw - 16px); padding: 17px; border-radius: 20px; }
   .sections { gap: 20px; }
+  .qrGroup { order: -1; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius: 14px; background: var(--accent-soft); }
+  .qrGroup .kicker { color: var(--accent-ink); }
+  .qrGroup > div button { border-bottom: 0; color: var(--accent-ink); font-weight: 750; }
   .bottomLinks span { width: 100%; margin-left: 0; }
 }
 

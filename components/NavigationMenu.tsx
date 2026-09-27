@@ -43,11 +43,11 @@ export default function NavigationMenu({ language, onSelectTool, onOpenQr }: Pro
         <button className={styles.backdrop} aria-label={language === "th" ? "ปิดเมนู" : "Close menu"} onClick={() => setOpen(false)} />
         <aside className={styles.drawer} data-testid="navigation-drawer" aria-label={language === "th" ? "เมนู FastFiles" : "FastFiles menu"}>
           <div className={styles.drawerHead}><div><span>FASTFILES</span><strong>{language === "th" ? "เครื่องมือทั้งหมด" : "All tools"}</strong></div><button aria-label={language === "th" ? "ปิดเมนู" : "Close menu"} onClick={() => setOpen(false)}>×</button></div>
-          <nav className={styles.sections}>
+          <div className={styles.sections} role="navigation" aria-label={language === "th" ? "หมวดเครื่องมือ FastFiles" : "FastFiles tool categories"}>
             <section className={styles.fileGroup}><span className={styles.kicker}>01</span><h2>{language === "th" ? "เครื่องมือไฟล์" : "File Tools"}</h2><div>{fileTools.map((tool) => <button key={`file-${tool.id}`} onClick={() => choose(tool)}><span>{language === "th" ? tool.thai : tool.label}</span><b>↗</b></button>)}</div></section>
             <section className={styles.imageGroup}><span className={styles.kicker}>02</span><h2>{language === "th" ? "เครื่องมือรูปภาพ" : "Image Tools"}</h2><div>{imageTools.map((tool) => <button key={`image-${tool.id}`} onClick={() => choose(tool)}><span>{language === "th" ? tool.thai : tool.label}</span><b>↗</b></button>)}</div></section>
             <section className={styles.qrGroup}><span className={styles.kicker}>03</span><h2>QR Code</h2><div><button data-testid="nav-qr-generator" aria-label={qrLabel} onClick={() => { setOpen(false); onOpenQr(); }}><span>{qrLabel}</span><b>↗</b></button></div></section>
-          </nav>
+          </div>
           <div className={styles.bottomLinks}><a href="#privacy" onClick={() => setOpen(false)}>{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</a><a href="#about" onClick={() => setOpen(false)}>{language === "th" ? "เกี่ยวกับ" : "About"}</a><span>Local-first · No account</span></div>
         </aside>
       </>}

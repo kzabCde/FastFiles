@@ -144,7 +144,7 @@ let pdfWorkerConfigured = false;
 async function getPdfJs() {
   const pdfjs = await import("pdfjs-dist");
   if (!pdfWorkerConfigured) {
-    pdfjs.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
     pdfWorkerConfigured = true;
   }
   return pdfjs;

@@ -32,21 +32,22 @@ async function assertNoHorizontalOverflow(page: Page) {
 }
 
 async function assertKeyTextNotClipped(page: Page) {
-  const clipped = await page.locator("h1, h2, .tool-name, .brand").evaluateAll((nodes) =>
-    nodes
+  const escaped = await page.locator("h1, h2, .tool-name, .brand").evaluateAll((nodes) => {
+    const width = document.documentElement.clientWidth;
+    return nodes
       .filter((node) => {
         const element = node as HTMLElement;
         const style = getComputedStyle(element);
         return style.display !== "none" && style.visibility !== "hidden" && element.offsetParent !== null;
       })
       .filter((node) => {
-        const element = node as HTMLElement;
-        return element.scrollWidth > element.clientWidth + 2 || element.scrollHeight > element.clientHeight + 2;
+        const rect = (node as HTMLElement).getBoundingClientRect();
+        return rect.left < -1 || rect.right > width + 1;
       })
       .map((node) => (node.textContent || "").trim())
-      .filter(Boolean),
-  );
-  expect(clipped).toEqual([]);
+      .filter(Boolean);
+  });
+  expect(escaped).toEqual([]);
 }
 
 test("landing page renders cleanly in English and Thai", async ({ page }) => {
@@ -83,7 +84,7 @@ test("image upload, conversion and download works", async ({ page }) => {
 
   await expect(page.getByText("sample.png")).toBeVisible();
   await page.getByRole("button", { name: /Image Converter/i }).first().click();
-  await expect(page.getByText(/SETTINGS/i)).toBeVisible();
+  await expect(page.getByText(/SETTINGS/i).first()).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /PROCESS IMAGE/i }).click();

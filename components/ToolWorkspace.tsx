@@ -85,7 +85,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset }
       </header>
 
       {tool.id === "merge-pdf" && <MergeWorkspace files={files} language={language} run={run} update={update} setResult={setResult} />}
-      {tool.id === "organize-pdf" && <OrganizeWorkspace file={files[0]} language={language} run={run} update={update} />}
+      {tool.id === "organize-pdf" && <OrganizeWorkspace file={files[0]} language={language} run={run} />}
       {tool.id === "split-pdf" && <SplitWorkspace file={files[0]} language={language} run={run} update={update} />}
       {tool.id === "images-to-pdf" && <ImagesToPdfWorkspace files={files} language={language} run={run} update={update} setResult={setResult} />}
       {tool.id === "pdf-to-images" && <PdfToImagesWorkspace file={files[0]} language={language} run={run} update={update} />}
@@ -140,7 +140,7 @@ function MergeWorkspace({ files, language, run, update, setResult }: { files: Fi
   return <div className="workspace-grid"><div><span className="eyebrow">{pdfs.length} PDF FILES</span><FileList files={pdfs} /></div><aside className="action-card"><h2>{language === "th" ? "รวมตามลำดับนี้" : "Merge in this order"}</h2><p>{language === "th" ? "ไฟล์จะถูกประมวลผลบนอุปกรณ์นี้ และดาวน์โหลดเป็น PDF เดียว" : "Files are processed on this device and exported as one PDF."}</p><button className="primary-button" onClick={process}>MERGE & DOWNLOAD ↗</button></aside></div>;
 }
 
-function OrganizeWorkspace({ file, language, run, update }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater }) {
+function OrganizeWorkspace({ file, language, run }: { file: File; language: "en" | "th"; run: Runner }) {
   const [pages, setPages] = useState<PdfPageState[]>([]);
   const [thumbs, setThumbs] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -155,7 +155,7 @@ function OrganizeWorkspace({ file, language, run, update }: { file: File; langua
         const count = await getPdfPageCount(file);
         if (!active) return;
         setPages(Array.from({ length: count }, (_, sourceIndex) => ({ sourceIndex, rotation: 0 })));
-        const rendered = await renderPdfThumbnails(file, 210, update("RENDERING PAGES"));
+        const rendered = await renderPdfThumbnails(file, 210);
         if (active) setThumbs(rendered);
       } catch {
         if (active) setThumbs([]);

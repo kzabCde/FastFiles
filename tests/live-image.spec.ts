@@ -58,7 +58,7 @@ test("live editor stays usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await upload(page, [{ name: "mobile-live.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Resize/i }).first().click();
+  await page.getByRole("button", { name: /Resize Image/i }).first().click();
 
   await expect(page.getByTestId("live-image-editor")).toBeVisible();
   await page.getByRole("button", { name: "9:16", exact: true }).click();

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ToolWorkspace from "./ToolWorkspace";
 import FileQueue from "./FileQueue";
+import NavigationMenu from "./NavigationMenu";
+import QRGenerator from "./QRGenerator";
 import { TOOLS, groupKind, searchTools, toolsFor, type ToolDefinition } from "@/lib/tools";
 import { formatBytes } from "@/lib/download";
 import { inspectFiles, isLargeWorkload, summarizeQueue, usableFiles, type FileQueueItem } from "@/lib/file-intake";
@@ -13,7 +15,7 @@ type Theme = "system" | "light" | "dark";
 const copy = {
   en: {
     hero: "Files should be easier.",
-    body: "Merge, convert, resize, compress and organize files without sending them across the internet.",
+    body: "Merge, convert, resize, compress, organize and generate QR codes without unnecessary uploads.",
     drop: "Drop files here",
     dropSub: "or click to browse · paste supported files",
     local: "Processed locally on your device",
@@ -28,7 +30,7 @@ const copy = {
     clear: "Clear",
     browse: "Browse files",
     popular: "Popular tools",
-    popularSub: "Everyday PDF and image work, without the clutter.",
+    popularSub: "Everyday PDF, image and QR work, without the clutter.",
     mixed: "Mixed PDF and image selections do not share a safe action yet. Remove a type or add matching files.",
     noReady: "Remove unavailable files before choosing a tool.",
     workload: "Large workload",
@@ -37,13 +39,13 @@ const copy = {
   },
   th: {
     hero: "จัดการไฟล์ให้ง่ายกว่านี้",
-    body: "รวม แปลง ปรับขนาด บีบอัด และจัดหน้าไฟล์ โดยประมวลผลบนอุปกรณ์เมื่อทำได้",
+    body: "รวม แปลง ปรับขนาด บีบอัด จัดหน้าไฟล์ และสร้าง QR Code โดยลดการอัปโหลดที่ไม่จำเป็น",
     drop: "วางไฟล์ที่นี่",
     dropSub: "หรือคลิกเพื่อเลือกไฟล์ · รองรับการวางไฟล์จากคลิปบอร์ด",
     local: "ประมวลผลบนอุปกรณ์ของคุณ",
     private: "ไม่ต้องสมัครสมาชิก และไม่เก็บไฟล์ถาวร",
     ask: "เลือกสิ่งที่ต้องการทำต่อ",
-    search: "คุณต้องการทำอะไรกับไฟล์?",
+    search: "คุณต้องการทำอะไร?",
     tools: "เครื่องมือ",
     privacy: "ความเป็นส่วนตัว",
     about: "เกี่ยวกับ",
@@ -52,7 +54,7 @@ const copy = {
     clear: "ล้าง",
     browse: "เลือกไฟล์",
     popular: "เครื่องมือยอดนิยม",
-    popularSub: "งาน PDF และรูปภาพที่ใช้บ่อย โดยไม่เพิ่มขั้นตอนเกินจำเป็น",
+    popularSub: "งาน PDF รูปภาพ และ QR Code ที่ใช้บ่อย โดยไม่เพิ่มขั้นตอนเกินจำเป็น",
     mixed: "ไฟล์ PDF และรูปภาพที่เลือกพร้อมกันยังไม่มีเครื่องมือร่วมที่ปลอดภัย กรุณาลบหนึ่งประเภทหรือเพิ่มไฟล์ชนิดเดียวกัน",
     noReady: "กรุณาลบไฟล์ที่ใช้ไม่ได้ก่อนเลือกเครื่องมือ",
     workload: "งานขนาดใหญ่",
@@ -78,6 +80,7 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
 export default function FastFilesApp() {
   const [queue, setQueue] = useState<FileQueueItem[]>([]);
   const [activeTool, setActiveTool] = useState<ToolDefinition | null>(null);
+  const [activeQr, setActiveQr] = useState(false);
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<Language>("en");
   const [theme, setTheme] = useState<Theme>("system");
@@ -115,6 +118,7 @@ export default function FastFilesApp() {
     });
     setNotice("");
     setActiveTool(null);
+    setActiveQr(false);
     setAcceptLargeWorkload(false);
   }, [language]);
 
@@ -130,6 +134,7 @@ export default function FastFilesApp() {
   const reset = () => {
     setQueue([]);
     setActiveTool(null);
+    setActiveQr(false);
     setNotice("");
     setAcceptLargeWorkload(false);
     if (inputRef.current) inputRef.current.value = "";
@@ -141,6 +146,7 @@ export default function FastFilesApp() {
   const searchResults = useMemo(() => searchTools(query).slice(0, 8), [query]);
   const kind = groupKind(files);
   const largeWorkload = isLargeWorkload(summary) && !acceptLargeWorkload;
+  const qrMatches = /(^|\s)(qr|wifi|wi-fi|คิวอาร์|ไวไฟ)/i.test(query.trim()) || query.trim().toLowerCase() === "code";
 
   const removeFile = (id: string) => {
     setQueue((current) => current.filter((item) => item.id !== id));
@@ -163,6 +169,18 @@ export default function FastFilesApp() {
     inputRef.current?.click();
   };
 
+  const openTool = (tool: ToolDefinition) => {
+    setActiveQr(false);
+    const currentKind = groupKind(files);
+    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : null;
+    if (files.length && normalizedKind && tool.accepts.includes(normalizedKind)) setActiveTool(tool);
+    else openPicker();
+  };
+
+  if (activeQr) {
+    return <QRGenerator language={language} theme={theme} onThemeChange={setTheme} onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")} onBack={() => setActiveQr(false)} />;
+  }
+
   if (activeTool && files.length) {
     return <ToolWorkspace tool={activeTool} files={files} language={language} onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")} onBack={() => setActiveTool(null)} onReset={reset} />;
   }
@@ -177,7 +195,10 @@ export default function FastFilesApp() {
     >
       <header className="site-header">
         <div className="header-inner">
-          <button className="brand" onClick={reset} aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></button>
+          <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
+            <NavigationMenu language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} />
+            <button className="brand" onClick={reset} aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></button>
+          </div>
           <nav><a href="#tools">{t.tools}</a><a href="#privacy">{t.privacy}</a><a href="#about">{t.about}</a></nav>
           <div className="header-actions">
             <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
@@ -192,7 +213,7 @@ export default function FastFilesApp() {
       <section className="hero-section">
         <div className="hero-wrap">
           <div className="hero-copy">
-            <div className="product-pill"><span className="live-dot" /> FastFiles v0.2</div>
+            <div className="product-pill"><span className="live-dot" /> FastFiles v0.2.1</div>
             <h1>{t.hero}</h1>
             <p className="hero-body">{t.body}</p>
             <div className="trust-row">
@@ -242,18 +263,16 @@ export default function FastFilesApp() {
           <div className="tool-search-wrap"><SearchIcon /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search} /><kbd>⌘ K</kbd></div>
         </div>
         <div className="tool-card-grid">
-          {(query ? searchResults : TOOLS).map((tool) => <ToolButton key={tool.id} tool={tool} language={language} onClick={() => {
-            if (files.length && groupKind(files) !== "mixed" && tool.accepts.includes(groupKind(files) === "image" ? "image" : "pdf")) setActiveTool(tool);
-            else openPicker();
-          }} />)}
+          {(query ? searchResults : TOOLS).map((tool) => <ToolButton key={tool.id} tool={tool} language={language} onClick={() => openTool(tool)} />)}
+          {(!query || qrMatches) && <button className="tool-card" onClick={() => setActiveQr(true)} aria-label={language === "th" ? "สร้าง QR Code" : "QR Generator"}><div className="tool-card-top"><span className="tool-icon"><QrGlyph /></span><span className="tool-arrow">↗</span></div><div><strong className="tool-name">{language === "th" ? "สร้าง QR Code" : "QR Generator"}</strong><p>{language === "th" ? "สร้าง QR จากข้อความ ลิงก์ Wi-Fi อีเมล โทรศัพท์ และ SMS" : "Create QR codes for text, URLs, Wi-Fi, email, phone and SMS."}</p></div><span className="tool-code">QR · LOCAL</span></button>}
         </div>
       </section>
 
       <section className="privacy-section section-shell" id="privacy">
-        <div className="privacy-card"><div className="privacy-icon"><ShieldIcon /></div><div><span className="section-kicker">Local-first</span><h2>{language === "th" ? "ไฟล์ของคุณยังเป็นของคุณ" : "Your files stay yours."}</h2></div><div className="privacy-copy"><p>{language === "th" ? "เครื่องมือหลักของ FastFiles ทำงานในเบราว์เซอร์ ไฟล์ต้นฉบับไม่ถูกเก็บถาวร และไม่มีบัญชีผู้ใช้ แต่ข้อจำกัดด้านหน่วยความจำและการรองรับรูปแบบไฟล์ขึ้นอยู่กับเบราว์เซอร์และอุปกรณ์" : "Core FastFiles tools run in your browser. Original files are not permanently stored and no account is required. Memory limits and format support still depend on your browser and device."}</p><div className="privacy-points"><span>Local processing</span><span>No account</span><span>No permanent file storage</span></div></div></div>
+        <div className="privacy-card"><div className="privacy-icon"><ShieldIcon /></div><div><span className="section-kicker">Local-first</span><h2>{language === "th" ? "ไฟล์และข้อมูลของคุณยังเป็นของคุณ" : "Your files and data stay yours."}</h2></div><div className="privacy-copy"><p>{language === "th" ? "เครื่องมือหลักของ FastFiles รวมถึง QR Generator ทำงานในเบราว์เซอร์ ไฟล์ต้นฉบับและข้อมูล QR ไม่ถูกเก็บถาวร และไม่มีบัญชีผู้ใช้" : "Core FastFiles tools, including QR generation, run in your browser. Original files and QR content are not permanently stored and no account is required."}</p><div className="privacy-points"><span>Local processing</span><span>No account</span><span>No permanent file storage</span></div></div></div>
       </section>
 
-      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>PDF + Image tools designed for reliable everyday work.</p><span>v0.2</span></section>
+      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>PDF + Image + QR tools designed for reliable everyday work.</p><span>v0.2.1</span></section>
       <footer className="section-shell"><span>© 2026 FastFiles</span><span>Private by design</span><span>Built for the browser</span></footer>
       {dragging && <div className="drag-overlay"><span className="drop-plus">+</span><strong>{language === "th" ? "วางไฟล์ได้ทุกที่" : "Drop files anywhere"}</strong><span>PDF · JPG · PNG · WEBP</span></div>}
     </main>
@@ -283,6 +302,7 @@ function ToolGlyph({ id }: { id: ToolDefinition["id"] }) {
   return <svg viewBox="0 0 24 24" {...common}><path d="M6 4h12v16H6z"/><path d="M9 15c2-4 4-6 6-8M8 17h8"/></svg>;
 }
 
+function QrGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2v4h-2M14 18v2h4M20 20h.01"/></svg>; }
 function SearchIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>; }
 function ShieldIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.6-2.7 7.8-7 10-4.3-2.2-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>; }
 function SparkIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.7 4.2 2.8 6.3 7 7-4.2.7-6.3 2.8-7 7-.7-4.2-2.8-6.3-7-7 4.2-.7 6.3-2.8 7-7Z"/><path d="M19 16c.2 1.4.9 2.1 2.3 2.3-1.4.2-2.1.9-2.3 2.3-.2-1.4-.9-2.1-2.3-2.3 1.4-.2 2.1-.9 2.3-2.3Z"/></svg>; }

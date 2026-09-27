@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ToolDefinition } from "@/lib/tools";
 import { kindOf } from "@/lib/tools";
 import { downloadBlob, downloadZip, formatBytes } from "@/lib/download";
-import { processImagesSettled, supportsImageFormat, type ImageFormat, type ImageProcessOptions } from "@/lib/image-tools";
 import ResultCenter, { type WorkspaceResult } from "./ResultCenter";
+import LiveImageWorkspace from "./LiveImageWorkspace";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
@@ -113,10 +113,10 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       {tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (
         <PdfWatermarkWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />
       ) : (
-        <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={resultSetter} busy={busy} />
+        <LiveImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={resultSetter} busy={busy} />
       ))}
       {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && (
-        <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={resultSetter} busy={busy} />
+        <LiveImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={resultSetter} busy={busy} />
       )}
 
       <Progress value={progress} language={language} />
@@ -272,88 +272,4 @@ function PdfWatermarkWorkspace({ file, language, run, setResult, busy }: { file:
   const [opacity, setOpacity] = useState(16);
   const process = () => run("WATERMARKING PDF", 1, async () => { const blob = await watermarkPdf(file, text, opacity / 100); const name = `${file.name.replace(/\.pdf$/i, "")}-watermarked.pdf`; downloadBlob(blob, name); setResult(makeSingleResult(language === "th" ? "ใส่ลายน้ำแล้ว" : "WATERMARK APPLIED", file, blob, name)); });
   return <div className="workspace-grid"><div className="preview-document"><span className="doc-mark">PDF</span><h2>{file.name}</h2><span>{formatBytes(file.size)}</span></div><aside className="action-card"><label>{language === "th" ? "ข้อความลายน้ำ" : "WATERMARK TEXT"}<input value={text} onChange={(event) => setText(event.target.value)} /></label><label>{language === "th" ? "ความทึบ" : "OPACITY"} · {opacity}%<input type="range" min="5" max="55" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label><p>{language === "th" ? "ใส่ลายน้ำกึ่งกลางทุกหน้าโดยประมวลผลในเบราว์เซอร์" : "Apply a centered watermark to every page in the browser."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "ใส่ลายน้ำ" : "APPLY & DOWNLOAD"} ↗</button></aside></div>;
-}
-
-function ImageWorkspace({ files, language, toolId, run, update, setResult, busy }: { files: File[]; language: "en" | "th"; toolId: string; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
-  const images = files.filter((file) => kindOf(file) === "image");
-  const urls = usePreviewUrls(images);
-  const [format, setFormat] = useState<ImageFormat>("image/webp");
-  const [quality, setQuality] = useState(toolId === "image-compress" ? 0.74 : 0.86);
-  const [maxWidth, setMaxWidth] = useState(toolId === "image-resize" ? 1920 : 0);
-  const [maxHeight, setMaxHeight] = useState(0);
-  const [scalePercent, setScalePercent] = useState(100);
-  const [preserveAspect, setPreserveAspect] = useState(true);
-  const [cropSquare, setCropSquare] = useState(false);
-  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
-  const [flipX, setFlipX] = useState(false);
-  const [watermark, setWatermark] = useState(toolId === "watermark" ? "FastFiles" : "");
-  const [avifSupported, setAvifSupported] = useState(false);
-  const [localProcessing, setLocalProcessing] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => { supportsImageFormat("image/avif").then(setAvifSupported).catch(() => setAvifSupported(false)); }, []);
-
-  const options: ImageProcessOptions = { format, quality, maxWidth: maxWidth || undefined, maxHeight: maxHeight || undefined, scalePercent, cropSquare, rotation, flipX, watermark: watermark || undefined, preserveAspect };
-
-  const runImages = (targets: File[], retryLabel?: string) => run(language === "th" ? "กำลังประมวลผลรูป" : "PROCESSING IMAGES", targets.length, async () => {
-    if (!targets.length) throw new Error(language === "th" ? "เพิ่มรูปอย่างน้อยหนึ่งไฟล์" : "Add at least one image first.");
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLocalProcessing(true);
-    try {
-      const settled = await processImagesSettled(targets, options, (done, total, file) => {
-        update(language === "th" ? "กำลังประมวลผลรูป" : "PROCESSING IMAGES")(done, total);
-        void file;
-      }, controller.signal);
-      const before = targets.reduce((sum, file) => sum + file.size, 0);
-      const after = settled.outputs.reduce((sum, item) => sum + item.blob.size, 0);
-      const entries = settled.outputs.map((item) => ({ name: item.name, blob: item.blob, originalSize: item.originalSize, sourceName: item.source.name }));
-      const failed = settled.failures.map((item) => ({ name: item.file.name, reason: item.error }));
-
-      if (entries.length === 1 && !failed.length) downloadBlob(entries[0].blob, entries[0].name);
-      else if (entries.length) await downloadZip(entries.map(({ name, blob }) => ({ name, blob })), "fastfiles-images.zip");
-
-      const retryFiles = settled.failures.map((item) => item.file);
-      setResult({
-        label: retryLabel ?? (language === "th" ? `ประมวลผลสำเร็จ ${entries.length} จาก ${targets.length} ไฟล์` : `${entries.length} OF ${targets.length} IMAGES PROCESSED`),
-        entries,
-        failed,
-        before,
-        after,
-        cancelled: settled.cancelled,
-        retryFailed: retryFiles.length ? () => runImages(retryFiles, language === "th" ? "ลองไฟล์ที่ไม่สำเร็จอีกครั้ง" : "RETRY COMPLETED") : undefined,
-      });
-    } finally {
-      abortRef.current = null;
-      setLocalProcessing(false);
-    }
-  });
-
-  const applyPreset = (preset: "original" | "50" | "25" | "1080" | "1920") => {
-    if (preset === "original") { setScalePercent(100); setMaxWidth(0); setMaxHeight(0); }
-    if (preset === "50") { setScalePercent(50); setMaxWidth(0); setMaxHeight(0); }
-    if (preset === "25") { setScalePercent(25); setMaxWidth(0); setMaxHeight(0); }
-    if (preset === "1080") { setScalePercent(100); setMaxWidth(1080); setMaxHeight(0); }
-    if (preset === "1920") { setScalePercent(100); setMaxWidth(1920); setMaxHeight(0); }
-  };
-
-  const estimated = useMemo(() => Math.round(images.reduce((sum, file) => sum + file.size, 0) * quality * (scalePercent / 100) * (maxWidth ? 0.72 : 1)), [images, quality, maxWidth, scalePercent]);
-  return (
-    <div className="image-workspace">
-      <div className="image-preview-column"><span className="eyebrow">{language === "th" ? `ใช้การตั้งค่านี้กับ ${images.length} รูป` : `APPLY TO ${images.length} IMAGE${images.length === 1 ? "" : "S"}`}</span><div className="image-grid large">{images.slice(0, 24).map((file, index) => <figure key={`${file.name}-${index}`}><img src={urls[index]} alt={file.name} /><figcaption><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></figcaption></figure>)}</div></div>
-      <aside className="control-panel">
-        <div className="control-head"><span>{language === "th" ? "การตั้งค่า" : "SETTINGS"}</span><span className="mono muted">LOCAL ONLY</span></div>
-        <label>{language === "th" ? "รูปแบบ" : "FORMAT"}<select value={format} onChange={(event) => setFormat(event.target.value as ImageFormat)}><option value="image/webp">WEBP</option><option value="image/jpeg">JPG</option><option value="image/png">PNG</option>{avifSupported && <option value="image/avif">AVIF</option>}</select></label>
-        <label>{language === "th" ? "คุณภาพ" : "QUALITY"} · {Math.round(quality * 100)}%<input type="range" min="35" max="100" value={Math.round(quality * 100)} onChange={(event) => setQuality(Number(event.target.value) / 100)} /></label>
-        <div className="preset-row"><button onClick={() => applyPreset("original")}>Original</button><button onClick={() => applyPreset("50")}>50%</button><button onClick={() => applyPreset("25")}>25%</button><button onClick={() => applyPreset("1080")}>1080px</button><button onClick={() => applyPreset("1920")}>1920px</button></div>
-        <div className="field-pair"><label>{language === "th" ? "กว้างสูงสุด" : "MAX WIDTH"}<input type="number" min="0" value={maxWidth || ""} placeholder="Original" onChange={(event) => setMaxWidth(Math.max(0, Number(event.target.value)))} /></label><label>{language === "th" ? "สูงสูงสุด" : "MAX HEIGHT"}<input type="number" min="0" value={maxHeight || ""} placeholder="Original" onChange={(event) => setMaxHeight(Math.max(0, Number(event.target.value)))} /></label></div>
-        <label className="check-label"><input type="checkbox" checked={preserveAspect} onChange={(event) => setPreserveAspect(event.target.checked)} /> {language === "th" ? "รักษาอัตราส่วนภาพ" : "Preserve aspect ratio"}</label>
-        <div className="toggle-grid"><button className={cropSquare ? "active" : ""} onClick={() => setCropSquare((value) => !value)}>1:1 CROP</button><button className={flipX ? "active" : ""} onClick={() => setFlipX((value) => !value)}>FLIP X</button><button onClick={() => setRotation((value) => ((value + 90) % 360) as 0 | 90 | 180 | 270)}>ROTATE {rotation}°</button></div>
-        <label>{language === "th" ? "ลายน้ำ" : "WATERMARK"}<input value={watermark} onChange={(event) => setWatermark(event.target.value)} placeholder={language === "th" ? "ไม่บังคับ" : "Optional"} /></label>
-        <div className="estimate"><span>{language === "th" ? "ต้นฉบับ" : "ORIGINAL"} <strong>{formatBytes(images.reduce((sum, file) => sum + file.size, 0))}</strong></span><span>{language === "th" ? "ประมาณการ" : "ESTIMATED"} <strong>~{formatBytes(estimated)}</strong></span></div>
-        <small className="estimate-note">{language === "th" ? "ขนาดก่อนประมวลผลเป็นเพียงค่าประมาณ ผลจริงจะแสดงใน Result Center" : "Pre-processing size is only an estimate. The actual result is shown after encoding."}</small>
-        {localProcessing ? <button className="secondary-button danger-outline" onClick={() => abortRef.current?.abort()}>{language === "th" ? "ยกเลิก" : "Cancel"}</button> : <button className="primary-button" disabled={busy} onClick={() => runImages(images)}>{language === "th" ? `ประมวลผล ${images.length} ไฟล์` : `PROCESS ${images.length > 1 ? `${images.length} FILES` : "IMAGE"}`} ↗</button>}
-      </aside>
-    </div>
-  );
 }

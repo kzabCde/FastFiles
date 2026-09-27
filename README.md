@@ -87,7 +87,7 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright is configured to verify Chromium, Firefox and WebKit.
+Playwright is configured to verify Chromium, Firefox and WebKit. The v0.2 suite also covers File Queue intake/error states, mobile overflow, in-workspace TH/EN switching, partial batch retry, PDF page numbering, metadata handling and progressive PDF thumbnails.
 
 ## Architecture
 
@@ -112,7 +112,9 @@ Playwright is configured to verify Chromium, Firefox and WebKit.
 - Added PDF page numbering and metadata inspection/clearing.
 - Expanded PDF organizer controls and keyboard support.
 - Added image resize presets, optional aspect-ratio unlock, runtime-gated AVIF and batch cancellation/retry.
+- Added TH/EN switching inside active workspaces.
 - Hardened generated downloads and filenames.
+- Expanded Chromium, Firefox and WebKit QA for the v0.2 workflow.
 - Clarified privacy, metadata, memory and PDF-compression limitations.
 
 ### 0.1.0

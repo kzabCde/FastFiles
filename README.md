@@ -44,7 +44,7 @@ Advanced PDF compression is intentionally **not** advertised in v0.2. The curren
 - Retry failed batch items
 - Cancel between batch items without reloading the application
 
-The current crop handles are visual guides. v0.2 supports preset aspect ratios plus drag-to-reposition; arbitrary freeform corner-resizing is intentionally not claimed yet.
+The current crop handles are visual guides. v0.2 supports preset aspect ratios plus drag-to-reposition; arbitrary freeform corner-resizing is intentionally not claimed yet. Codec-quality controls affect the actual exported file, while the live canvas focuses on geometric edits and watermark placement rather than pretending to reproduce exact compression artifacts before encoding.
 
 ### Result Center
 

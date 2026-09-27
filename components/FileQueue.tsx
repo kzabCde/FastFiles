@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { formatBytes } from "@/lib/download";
 import type { FileQueueItem, QueueSummary } from "@/lib/file-intake";
 
@@ -20,7 +21,7 @@ export default function FileQueue({
   onAdd: () => void;
   onClear: () => void;
 }) {
-  const dragIndex = { current: -1 };
+  const dragIndex = useRef(-1);
   const t = language === "th" ? {
     title: "คิวไฟล์",
     add: "เพิ่มไฟล์",

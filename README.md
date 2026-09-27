@@ -32,13 +32,19 @@ Advanced PDF compression is intentionally **not** advertised in v0.2. The curren
 
 - JPG / PNG / WebP conversion
 - AVIF output only when the current browser successfully reports support
+- Live Canvas editing for Image Convert, Resize, Compress and image Watermark workflows
+- Crop presets: Original, 1:1, 4:3, 3:4, 16:9 and 9:16, with draggable crop repositioning
+- Live rotate, horizontal/vertical flip and text-watermark preview with adjustable opacity
+- Preview uses a lightweight in-browser render while final export processes the original full-resolution source
+- Batch filmstrip preview; the current edit settings are applied consistently to all selected images
 - Resize presets: Original, 50%, 25%, 1080px, 1920px and custom dimensions
 - Preserve-aspect-ratio control
-- Square crop, rotate, flip and text watermark
-- Quality-based compression
+- Quality-based compression with estimated size before export and actual size in Result Center
 - Batch processing that keeps successful outputs even when another image fails
 - Retry failed batch items
 - Cancel between batch items without reloading the application
+
+The current crop handles are visual guides. v0.2 supports preset aspect ratios plus drag-to-reposition; arbitrary freeform corner-resizing is intentionally not claimed yet.
 
 ### Result Center
 
@@ -69,6 +75,8 @@ Image re-encoding uses browser Canvas APIs. Re-encoding commonly drops source me
 - AVIF export is hidden when the browser cannot produce a valid AVIF Blob.
 - HEIC/HEIF export is not part of v0.2.
 - Batch cancellation occurs between files; an individual Canvas/PDF operation that has already started may need to finish before cancellation takes effect.
+- Live crop currently supports aspect-ratio presets and repositioning, not arbitrary freeform crop resizing.
+- Codec quality changes are reflected in estimated/output size; the preview is not intended to simulate exact JPEG/WebP/AVIF compression artifacts before export.
 
 ## Development
 
@@ -87,18 +95,19 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright is configured to verify Chromium, Firefox and WebKit. The v0.2 suite also covers File Queue intake/error states, mobile overflow, in-workspace TH/EN switching, partial batch retry, PDF page numbering, metadata handling and progressive PDF thumbnails.
+Playwright is configured to verify Chromium, Firefox and WebKit. The current v0.2 suite runs 99 tests: 96 pass and 3 are intentional platform/smoke-test skips. Coverage includes File Queue intake/error states, mobile overflow, in-workspace TH/EN switching, partial batch retry, PDF page numbering, metadata handling, progressive PDF thumbnails, live image transforms, live crop UI and exported crop-ratio verification.
 
 ## Architecture
 
 - `app/` — Next.js App Router shell and visual system
 - `components/FastFilesApp.tsx` — landing, File Intake V2, discovery, theme/language
 - `components/FileQueue.tsx` — queue status, add/remove/reorder UI
-- `components/ToolWorkspace.tsx` — PDF/image workspaces and shared processing states
+- `components/ToolWorkspace.tsx` — shared tool routing, PDF workspaces and processing states
+- `components/LiveImageWorkspace.tsx` — live Canvas image editor, crop controls and batch preview
 - `components/ResultCenter.tsx` — reusable single/batch output UI
 - `lib/file-intake.ts` — local validation, queue summaries and workload checks
 - `lib/pdf-tools.ts` — pdf-lib + bundled PDF.js rendering/processing
-- `lib/image-tools.ts` — Canvas-based image processing and partial batch recovery
+- `lib/image-tools.ts` — full-resolution Canvas image export, crop geometry and partial batch recovery
 - `lib/tools.ts` — tool metadata, file detection and smart action filtering
 - `lib/download.ts` — safe filenames, Blob downloads and ZIP creation
 
@@ -111,6 +120,7 @@ Playwright is configured to verify Chromium, Firefox and WebKit. The v0.2 suite 
 - Added Result Center and partial batch recovery.
 - Added PDF page numbering and metadata inspection/clearing.
 - Expanded PDF organizer controls and keyboard support.
+- Added a live Canvas image editor with crop presets/repositioning, rotate, flip and watermark preview.
 - Added image resize presets, optional aspect-ratio unlock, runtime-gated AVIF and batch cancellation/retry.
 - Added TH/EN switching inside active workspaces.
 - Hardened generated downloads and filenames.

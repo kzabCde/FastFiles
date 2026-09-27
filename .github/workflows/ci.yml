@@ -11,6 +11,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Upload QA source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-source
+          path: |
+            components/ToolWorkspace.tsx
+            lib/pdf-tools.ts
+            app/globals.css
+            app/layout.tsx
+            tests/fastfiles.spec.ts
+          if-no-files-found: error
       - uses: actions/setup-node@v4
         with:
           node-version: 22

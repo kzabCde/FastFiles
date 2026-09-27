@@ -4,9 +4,10 @@ import fs from "node:fs/promises";
 async function openQr(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Open tools menu" }).click();
-  const drawer = page.getByTestId("navigation-drawer");
-  await expect(drawer).toBeVisible();
-  await drawer.getByRole("button", { name: /QR Generator/i }).click();
+  const dropdown = page.getByTestId("navigation-dropdown");
+  await expect(dropdown).toBeVisible();
+  await dropdown.getByRole("link", { name: /QR Generator/i }).click();
+  await expect(page).toHaveURL(/\/qr$/);
   await expect(page.getByTestId("qr-generator")).toBeVisible();
 }
 
@@ -15,20 +16,41 @@ async function assertNoOverflow(page: Page) {
   expect(metrics.scroll).toBeLessThanOrEqual(metrics.width + 1);
 }
 
-test("burger menu groups File, Image and QR tools", async ({ page }) => {
+test("burger menu opens as a dropdown with File, Image and QR groups", async ({ page }) => {
   await page.goto("/");
   const menu = page.getByRole("button", { name: "Open tools menu" });
   await expect(menu).toBeVisible();
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
   await menu.click();
-  const drawer = page.getByTestId("navigation-drawer");
-  await expect(drawer.getByRole("heading", { name: "File Tools" })).toBeVisible();
-  await expect(drawer.getByRole("heading", { name: "Image Tools" })).toBeVisible();
-  await expect(drawer.getByRole("heading", { name: "QR Code" })).toBeVisible();
-  await expect(drawer.getByRole("button", { name: /Merge PDF/i })).toBeVisible();
-  await expect(drawer.getByRole("button", { name: /Image Converter/i })).toBeVisible();
-  await expect(drawer.getByRole("button", { name: /QR Generator/i })).toBeVisible();
-  await drawer.getByRole("button", { name: "Close menu" }).click();
-  await expect(drawer).toHaveCount(0);
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+
+  const dropdown = page.getByTestId("navigation-dropdown");
+  await expect(dropdown).toBeVisible();
+  await expect(dropdown.getByRole("heading", { name: "File Tools" })).toBeVisible();
+  await expect(dropdown.getByRole("heading", { name: "Image Tools" })).toBeVisible();
+  await expect(dropdown.getByRole("heading", { name: "QR Code" })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /Merge PDF/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /Image Converter/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /QR Generator/i })).toBeVisible();
+
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await expect(dropdown).toHaveCount(0);
+});
+
+test("file and image menu items open dedicated pages", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open tools menu" }).click();
+  await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Merge PDF" }).click();
+  await expect(page).toHaveURL(/\/tools\/merge-pdf$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Merge PDF" })).toBeVisible();
+  await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible();
+
+  await page.getByRole("button", { name: "Open tools menu" }).click();
+  await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Image Converter" }).click();
+  await expect(page).toHaveURL(/\/tools\/image-convert$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Image Converter" })).toBeVisible();
+  await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible();
 });
 
 test("QR generator creates a live URL preview", async ({ page }) => {
@@ -96,18 +118,19 @@ test("QR workspace supports Thai and dark mode", async ({ page }) => {
   await expect(page.getByText(/ประมวลผลในเครื่อง/).first()).toBeVisible();
 });
 
-test("burger menu and QR generator remain usable on mobile", async ({ page }) => {
+test("dropdown and QR generator remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open tools menu" }).click();
-  const drawer = page.getByTestId("navigation-drawer");
-  await expect(drawer).toBeVisible();
+  const dropdown = page.getByTestId("navigation-dropdown");
+  await expect(dropdown).toBeVisible();
   await assertNoOverflow(page);
-  const qrButton = drawer.getByTestId("nav-qr-generator");
-  await qrButton.scrollIntoViewIfNeeded();
-  await expect(qrButton).toBeVisible();
-  await expect(qrButton).toHaveAccessibleName("QR Generator");
-  await qrButton.click();
+  const qrLink = dropdown.getByTestId("nav-qr-generator");
+  await qrLink.scrollIntoViewIfNeeded();
+  await expect(qrLink).toBeVisible();
+  await expect(qrLink).toHaveAccessibleName("QR Generator");
+  await qrLink.click();
+  await expect(page).toHaveURL(/\/qr$/);
   await expect(page.getByTestId("qr-generator")).toBeVisible();
   await expect(page.getByTestId("qr-preview")).toBeVisible();
   await assertNoOverflow(page);

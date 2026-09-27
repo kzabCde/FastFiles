@@ -57,7 +57,7 @@ test("live crop ratio is preserved in the exported PNG", async ({ page }) => {
 test("advanced watermark updates live position, color and export", async ({ page }) => {
   await page.goto("/");
   await upload(page, [{ name: "watermark.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /^Watermark$/i }).first().click();
+  await page.getByRole("button", { name: /Watermark/i }).first().click();
 
   const workspace = page.getByTestId("watermark-image-editor");
   const preview = page.getByTestId("live-image-preview");

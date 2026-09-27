@@ -5,66 +5,12 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-      - name: Apply QA source fixes
-        if: github.event_name == 'pull_request'
-        env:
-          HEAD_BRANCH: ${{ github.head_ref }}
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          p = Path('components/ToolWorkspace.tsx')
-          s = p.read_text()
-          s = s.replace('<OrganizeWorkspace file={files[0]} language={language} run={run} update={update} />', '<OrganizeWorkspace file={files[0]} language={language} run={run} />')
-          s = s.replace('function OrganizeWorkspace({ file, language, run, update }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater }) {', 'function OrganizeWorkspace({ file, language, run }: { file: File; language: "en" | "th"; run: Runner }) {')
-          s = s.replace('const rendered = await renderPdfThumbnails(file, 210, update("RENDERING PAGES"));', 'const rendered = await renderPdfThumbnails(file, 210);')
-          s = s.replace('{tool.id === "watermark" && files[0] && kindOf(files[0]) === "pdf" ? (', '{tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (')
-          marker = '''        <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={setResult} />\n      )}\n      {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && ('''
-          replacement = '''        <ImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={setResult} />\n      ))}\n      {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && ('''
-          s = s.replace(marker, replacement)
-          p.write_text(s)
-
-          p = Path('lib/pdf-tools.ts')
-          s = p.read_text()
-          s = s.replace('pdfjs.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";', 'pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();')
-          p.write_text(s)
-
-          p = Path('app/globals.css')
-          s = p.read_text()
-          s = s.replace('font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;', 'font-family: Inter, "Noto Sans Thai", "Leelawadee UI", Tahoma, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;', 1)
-          s = s.replace('  .chip-button { display: none; }\n', '  .chip-button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; padding-inline: 9px; }\n')
-          p.write_text(s)
-
-          p = Path('tests/fastfiles.spec.ts')
-          s = p.read_text()
-          old = '''async function assertKeyTextNotClipped(page: Page) {\n  const clipped = await page.locator("h1, h2, .tool-name, .brand").evaluateAll((nodes) =>\n    nodes\n      .filter((node) => {\n        const element = node as HTMLElement;\n        const style = getComputedStyle(element);\n        return style.display !== "none" && style.visibility !== "hidden" && element.offsetParent !== null;\n      })\n      .filter((node) => {\n        const element = node as HTMLElement;\n        return element.scrollWidth > element.clientWidth + 2 || element.scrollHeight > element.clientHeight + 2;\n      })\n      .map((node) => (node.textContent || "").trim())\n      .filter(Boolean),\n  );\n  expect(clipped).toEqual([]);\n}\n'''
-          new = '''async function assertKeyTextNotClipped(page: Page) {\n  const escaped = await page.locator("h1, h2, .tool-name, .brand").evaluateAll((nodes) => {\n    const width = document.documentElement.clientWidth;\n    return nodes\n      .filter((node) => {\n        const element = node as HTMLElement;\n        const style = getComputedStyle(element);\n        return style.display !== "none" && style.visibility !== "hidden" && element.offsetParent !== null;\n      })\n      .filter((node) => {\n        const rect = (node as HTMLElement).getBoundingClientRect();\n        return rect.left < -1 || rect.right > width + 1;\n      })\n      .map((node) => (node.textContent || "").trim())\n      .filter(Boolean);\n  });\n  expect(escaped).toEqual([]);\n}\n'''
-          if old in s:
-              s = s.replace(old, new)
-          s = s.replace('await expect(page.getByText(/SETTINGS/i)).toBeVisible();', 'await expect(page.getByText(/SETTINGS/i).first()).toBeVisible();')
-          s = s.replace('page.getByRole("button", { name: "TH" }).click()', 'page.getByRole("button", { name: "TH", exact: true }).click()')
-          s = s.replace('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFElEQVR4nGOsOLGAARtgwio6aCUAei8B8F0+AyAAAAAASUVORK5CYII=')
-          s = s.replace('await expect(page.getByText(/ไฟล์ของคุณยังอยู่บนอุปกรณ์ของคุณ/)).toBeVisible();', 'await expect(page.locator("html")).toHaveAttribute("lang", "th");\n  await expect(page.getByText(/ประมวลผลบนอุปกรณ์ของคุณ/).first()).toBeVisible();')
-          p.write_text(s)
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add components/ToolWorkspace.tsx lib/pdf-tools.ts app/globals.css tests/fastfiles.spec.ts
-          if ! git diff --cached --quiet; then
-            git commit -m "test: validate image download and Thai rendering"
-            git push origin "HEAD:${HEAD_BRANCH}"
-          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22

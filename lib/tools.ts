@@ -21,6 +21,7 @@ export type ToolDefinition = {
   accepts: Array<"pdf" | "image">;
   aliases: string[];
   multiple?: boolean;
+  hidden?: boolean;
 };
 
 export const TOOLS: ToolDefinition[] = [
@@ -31,10 +32,10 @@ export const TOOLS: ToolDefinition[] = [
   { id: "pdf-metadata", label: "PDF Metadata", thai: "ข้อมูล PDF", short: "METADATA", accepts: ["pdf"], aliases: ["pdf metadata", "document info", "remove metadata", "ข้อมูล pdf", "ลบ metadata"] },
   { id: "images-to-pdf", label: "Images to PDF", thai: "รูปภาพเป็น PDF", short: "IMAGE → PDF", accepts: ["image"], multiple: true, aliases: ["jpg to pdf", "png to pdf", "images to pdf", "รูปเป็น pdf", "ภาพเป็น pdf"] },
   { id: "pdf-to-images", label: "PDF to Images", thai: "PDF เป็นรูปภาพ", short: "PDF → IMAGE", accepts: ["pdf"], aliases: ["pdf to jpg", "pdf to png", "pdf to image", "pdf เป็นรูป", "แปลง pdf เป็นรูป"] },
-  { id: "image-convert", label: "Image Converter", thai: "แปลงไฟล์รูป", short: "CONVERT", accepts: ["image"], multiple: true, aliases: ["jpg to webp", "png to jpg", "convert image", "แปลงรูป", "แปลงไฟล์ภาพ"] },
-  { id: "image-resize", label: "Resize Image", thai: "ปรับขนาดรูป", short: "RESIZE", accepts: ["image"], multiple: true, aliases: ["resize image", "make image smaller", "ปรับขนาดรูป", "ลดขนาดรูป"] },
-  { id: "image-compress", label: "Compress Image", thai: "บีบอัดรูป", short: "COMPRESS", accepts: ["image"], multiple: true, aliases: ["compress image", "make image smaller", "reduce image size", "บีบอัดรูป", "ลดไฟล์รูป"] },
-  { id: "watermark", label: "Watermark", thai: "ใส่ลายน้ำ", short: "WATERMARK", accepts: ["pdf", "image"], aliases: ["watermark pdf", "watermark image", "add watermark", "ลายน้ำ", "ใส่ลายน้ำ"] },
+  { id: "image-convert", label: "Image Editor", thai: "แก้ไขรูปภาพ", short: "IMAGE EDIT", accepts: ["image"], multiple: true, aliases: ["image editor", "convert image", "resize image", "compress image", "crop image", "jpg to webp", "png to jpg", "แก้ไขรูปภาพ", "แปลงรูป", "ปรับขนาดรูป", "บีบอัดรูป", "ตัดรูป"] },
+  { id: "image-resize", label: "Resize Image", thai: "ปรับขนาดรูป", short: "RESIZE", accepts: ["image"], multiple: true, hidden: true, aliases: ["resize image", "make image smaller", "ปรับขนาดรูป", "ลดขนาดรูป"] },
+  { id: "image-compress", label: "Compress Image", thai: "บีบอัดรูป", short: "COMPRESS", accepts: ["image"], multiple: true, hidden: true, aliases: ["compress image", "make image smaller", "reduce image size", "บีบอัดรูป", "ลดไฟล์รูป"] },
+  { id: "watermark", label: "Watermark", thai: "ใส่ลายน้ำ", short: "WATERMARK", accepts: ["pdf", "image"], aliases: ["watermark pdf", "watermark image", "add watermark", "image watermark", "ลายน้ำ", "ใส่ลายน้ำ", "ลายน้ำรูป"] },
 ];
 
 export function kindOf(file: File): "pdf" | "image" | "unsupported" {
@@ -57,6 +58,7 @@ export function toolsFor(files: File[]): ToolDefinition[] {
   if (kind === "mixed" || kind === "unsupported") return [];
   const count = files.length;
   return TOOLS.filter((tool) => {
+    if (tool.hidden) return false;
     if (!tool.accepts.includes(kind)) return false;
     if (tool.id === "merge-pdf" && count < 2) return false;
     if (kind === "pdf" && count > 1 && tool.id !== "merge-pdf") return false;
@@ -66,8 +68,9 @@ export function toolsFor(files: File[]): ToolDefinition[] {
 
 export function searchTools(query: string): ToolDefinition[] {
   const normalized = query.trim().toLowerCase();
-  if (!normalized) return TOOLS;
-  return TOOLS.filter((tool) => {
+  const visibleTools = TOOLS.filter((tool) => !tool.hidden);
+  if (!normalized) return visibleTools;
+  return visibleTools.filter((tool) => {
     const haystack = [tool.label, tool.thai, tool.short, ...tool.aliases].join(" ").toLowerCase();
     return normalized.split(/\s+/).every((part) => haystack.includes(part));
   });

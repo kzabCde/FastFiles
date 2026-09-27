@@ -77,7 +77,8 @@ test("QR color customization updates the live preview", async ({ page }) => {
   const before = await preview.getAttribute("src");
   await page.getByLabel("Foreground").evaluate((element) => {
     const input = element as HTMLInputElement;
-    input.value = "#0055aa";
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "#0055aa");
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
@@ -99,9 +100,13 @@ test("burger menu and QR generator remain usable on mobile", async ({ page }) =>
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open tools menu" }).click();
-  await expect(page.getByTestId("navigation-drawer")).toBeVisible();
+  const drawer = page.getByTestId("navigation-drawer");
+  await expect(drawer).toBeVisible();
   await assertNoOverflow(page);
-  await page.getByTestId("navigation-drawer").getByRole("button", { name: /QR Generator/i }).click();
+  await drawer.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const qrButton = drawer.getByRole("button", { name: /QR Generator/i });
+  await expect(qrButton).toBeVisible();
+  await qrButton.click();
   await expect(page.getByTestId("qr-generator")).toBeVisible();
   await expect(page.getByTestId("qr-preview")).toBeVisible();
   await assertNoOverflow(page);

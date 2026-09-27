@@ -7,10 +7,14 @@ export type ImageProcessOptions = {
   maxHeight?: number;
   scalePercent?: number;
   cropSquare?: boolean;
+  cropAspect?: number;
+  cropCenterX?: number;
+  cropCenterY?: number;
   rotation?: 0 | 90 | 180 | 270;
   flipX?: boolean;
   flipY?: boolean;
   watermark?: string;
+  watermarkOpacity?: number;
   preserveAspect?: boolean;
 };
 
@@ -32,6 +36,13 @@ export type BatchImageResult = {
   cancelled: boolean;
 };
 
+export type PixelCropRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 async function loadImage(file: File): Promise<ImageBitmap | HTMLImageElement> {
   if ("createImageBitmap" in window) return createImageBitmap(file);
   const image = new Image();
@@ -50,6 +61,29 @@ function dimensions(source: ImageBitmap | HTMLImageElement) {
     width: "naturalWidth" in source ? source.naturalWidth : source.width,
     height: "naturalHeight" in source ? source.naturalHeight : source.height,
   };
+}
+
+export function getAspectCropRect(
+  width: number,
+  height: number,
+  aspect?: number,
+  centerX = 0.5,
+  centerY = 0.5,
+): PixelCropRect {
+  if (!width || !height || !aspect || !Number.isFinite(aspect) || aspect <= 0) {
+    return { x: 0, y: 0, width: Math.max(0, width), height: Math.max(0, height) };
+  }
+
+  let cropWidth = width;
+  let cropHeight = height;
+  if (width / height > aspect) cropWidth = height * aspect;
+  else cropHeight = width / aspect;
+
+  const wantedX = Math.min(1, Math.max(0, centerX)) * width - cropWidth / 2;
+  const wantedY = Math.min(1, Math.max(0, centerY)) * height - cropHeight / 2;
+  const x = Math.min(Math.max(0, wantedX), Math.max(0, width - cropWidth));
+  const y = Math.min(Math.max(0, wantedY), Math.max(0, height - cropHeight));
+  return { x, y, width: cropWidth, height: cropHeight };
 }
 
 export async function probeImage(file: File) {
@@ -81,29 +115,34 @@ export async function processImage(file: File, options: ImageProcessOptions): Pr
   const source = await loadImage(file);
   try {
     const original = dimensions(source);
-    const square = Boolean(options.cropSquare);
-    const sourceWidth = square ? Math.min(original.width, original.height) : original.width;
-    const sourceHeight = square ? Math.min(original.width, original.height) : original.height;
-    const sourceX = square ? (original.width - sourceWidth) / 2 : 0;
-    const sourceY = square ? (original.height - sourceHeight) / 2 : 0;
+    const rotation = options.rotation ?? 0;
+    const swapped = rotation === 90 || rotation === 270;
+    const transformedWidth = swapped ? original.height : original.width;
+    const transformedHeight = swapped ? original.width : original.height;
+    const cropAspect = options.cropSquare ? 1 : options.cropAspect;
+    const crop = getAspectCropRect(
+      transformedWidth,
+      transformedHeight,
+      cropAspect,
+      options.cropCenterX ?? 0.5,
+      options.cropCenterY ?? 0.5,
+    );
 
     const percentage = Math.max(0.01, Math.min(1, (options.scalePercent ?? 100) / 100));
-    const widthScale = options.maxWidth ? options.maxWidth / sourceWidth : 1;
-    const heightScale = options.maxHeight ? options.maxHeight / sourceHeight : 1;
+    const widthScale = options.maxWidth ? options.maxWidth / Math.max(1, crop.width) : 1;
+    const heightScale = options.maxHeight ? options.maxHeight / Math.max(1, crop.height) : 1;
     const scale = Math.min(1, percentage, widthScale, heightScale);
-    let targetWidth = Math.max(1, Math.round(sourceWidth * scale));
-    let targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+    let targetWidth = Math.max(1, Math.round(crop.width * scale));
+    let targetHeight = Math.max(1, Math.round(crop.height * scale));
 
     if (options.preserveAspect === false) {
       if (options.maxWidth) targetWidth = Math.max(1, Math.round(options.maxWidth));
       if (options.maxHeight) targetHeight = Math.max(1, Math.round(options.maxHeight));
     }
 
-    const rotation = options.rotation ?? 0;
-    const swapped = rotation === 90 || rotation === 270;
     const canvas = document.createElement("canvas");
-    canvas.width = swapped ? targetHeight : targetWidth;
-    canvas.height = swapped ? targetWidth : targetHeight;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Canvas is not available in this browser.");
 
@@ -113,10 +152,12 @@ export async function processImage(file: File, options: ImageProcessOptions): Pr
     }
 
     context.save();
-    context.translate(canvas.width / 2, canvas.height / 2);
+    context.scale(targetWidth / Math.max(1, crop.width), targetHeight / Math.max(1, crop.height));
+    context.translate(-crop.x, -crop.y);
+    context.translate(transformedWidth / 2, transformedHeight / 2);
     context.rotate((rotation * Math.PI) / 180);
     context.scale(options.flipX ? -1 : 1, options.flipY ? -1 : 1);
-    context.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight, -targetWidth / 2, -targetHeight / 2, targetWidth, targetHeight);
+    context.drawImage(source, -original.width / 2, -original.height / 2, original.width, original.height);
     context.restore();
 
     if (options.watermark?.trim()) {
@@ -125,7 +166,7 @@ export async function processImage(file: File, options: ImageProcessOptions): Pr
       context.font = `700 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
       context.textAlign = "right";
       context.textBaseline = "bottom";
-      context.fillStyle = "rgba(20, 20, 16, 0.38)";
+      context.fillStyle = `rgba(20, 20, 16, ${Math.min(1, Math.max(0.05, options.watermarkOpacity ?? 0.38))})`;
       context.fillText(options.watermark.trim(), canvas.width - fontSize * 0.65, canvas.height - fontSize * 0.55);
       context.restore();
     }

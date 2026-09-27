@@ -18,8 +18,8 @@ const imageToolIds = new Set(["image-convert", "watermark"]);
 export default function NavigationMenu({ language }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const fileTools = TOOLS.filter((tool) => fileToolIds.has(tool.id) && !tool.hidden);
-  const imageTools = TOOLS.filter((tool) => imageToolIds.has(tool.id) && !tool.hidden);
+  const fileTools = TOOLS.filter((tool) => fileToolIds.has(tool.id));
+  const imageTools = TOOLS.filter((tool) => imageToolIds.has(tool.id));
   const qrLabel = language === "th" ? "สร้าง QR Code" : "QR Generator";
 
   useEffect(() => {
@@ -58,17 +58,23 @@ export default function NavigationMenu({ language }: Props) {
           <div className={styles.sections}>
             <section className={styles.fileGroup}>
               <div className={styles.groupTitle}><span className={styles.kicker}>01</span><h2>{language === "th" ? "เครื่องมือไฟล์" : "File Tools"}</h2></div>
-              <div className={styles.links}>{fileTools.map((tool) => <a key={`file-${tool.id}`} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{language === "th" ? tool.thai : tool.label}</span><b>↗</b></a>)}</div>
+              <div className={styles.links}>{fileTools.map((tool) => {
+                const label = language === "th" ? tool.thai : tool.label;
+                return <a key={`file-${tool.id}`} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
+              })}</div>
             </section>
 
             <section className={styles.imageGroup}>
               <div className={styles.groupTitle}><span className={styles.kicker}>02</span><h2>{language === "th" ? "เครื่องมือรูปภาพ" : "Image Tools"}</h2></div>
-              <div className={styles.links}>{imageTools.map((tool) => <a key={`image-${tool.id}`} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{language === "th" ? tool.thai : tool.label}</span><b>↗</b></a>)}</div>
+              <div className={styles.links}>{imageTools.map((tool) => {
+                const label = language === "th" ? tool.thai : tool.label;
+                return <a key={`image-${tool.id}`} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
+              })}</div>
             </section>
 
             <section className={styles.qrGroup}>
               <div className={styles.groupTitle}><span className={styles.kicker}>03</span><h2>QR Code</h2></div>
-              <div className={styles.links}><a data-testid="nav-qr-generator" aria-label={qrLabel} href="/qr" onClick={() => setOpen(false)}><span>{qrLabel}</span><b>↗</b></a></div>
+              <div className={styles.links}><a data-testid="nav-qr-generator" aria-label={qrLabel} href="/qr" onClick={() => setOpen(false)}><span>{qrLabel}</span><b aria-hidden="true">↗</b></a></div>
             </section>
           </div>
 

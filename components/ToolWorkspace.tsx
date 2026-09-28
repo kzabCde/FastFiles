@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ToolDefinition } from "@/lib/tools";
 import { kindOf } from "@/lib/tools";
 import { downloadBlob, downloadZip, formatBytes } from "@/lib/download";
 import ResultCenter, { type WorkspaceResult } from "./ResultCenter";
 import LiveImageWorkspace from "./LiveImageWorkspace";
+import PdfPreview from "./PdfPreview";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
@@ -23,6 +24,7 @@ import {
   type PageNumberPosition,
   type PdfMetadata,
   type PdfPageState,
+  type PdfWatermarkOptions,
 } from "@/lib/pdf-tools";
 
 type Props = {
@@ -152,7 +154,9 @@ function OrganizeWorkspace({ file, language, run, setResult, busy }: { file: Fil
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [history, setHistory] = useState<PdfPageState[][]>([]);
   const [future, setFuture] = useState<PdfPageState[][]>([]);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragIndex = useRef<number | null>(null);
+  const lastSelected = useRef<number | null>(null);
   const organizerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,6 +196,19 @@ function OrganizeWorkspace({ file, language, run, setResult, busy }: { file: Fil
   const deleteSelected = () => { if (!selected.size || selected.size >= pages.length) return; commit(pages.filter((_, index) => !selected.has(index))); setSelected(new Set()); };
   const selectAll = () => setSelected(new Set(pages.map((_, index) => index)));
   const deselectAll = () => setSelected(new Set());
+  const selectPage = (index: number, event: ReactMouseEvent) => {
+    if (event.shiftKey && lastSelected.current !== null) {
+      const start = Math.min(lastSelected.current, index);
+      const end = Math.max(lastSelected.current, index);
+      setSelected(new Set(Array.from({ length: end - start + 1 }, (_, offset) => start + offset)));
+    } else if (event.ctrlKey || event.metaKey) {
+      setSelected((value) => { const next = new Set(value); if (next.has(index)) next.delete(index); else next.add(index); return next; });
+      lastSelected.current = index;
+    } else {
+      setSelected(new Set([index]));
+      lastSelected.current = index;
+    }
+  };
   const exportPdf = () => run("EXPORTING PDF", pages.length, async () => { const blob = await organizePdf(file, pages); const name = `${file.name.replace(/\.pdf$/i, "")}-organized.pdf`; downloadBlob(blob, name); setResult(makeSingleResult(language === "th" ? "จัดหน้า PDF แล้ว" : "PDF ORGANIZED", file, blob, name)); });
   const extractSelected = () => run("EXTRACTING PAGES", selected.size || 1, async () => { if (!selected.size) throw new Error(language === "th" ? "เลือกอย่างน้อยหนึ่งหน้าก่อน" : "Select one or more pages first."); const indices = [...selected].sort((a, b) => a - b).map((index) => pages[index].sourceIndex); const blob = await extractPdfPages(file, indices); const name = `${file.name.replace(/\.pdf$/i, "")}-selected.pdf`; downloadBlob(blob, name); setResult(makeSingleResult(language === "th" ? "ดึงหน้าที่เลือกแล้ว" : "PAGES EXTRACTED", file, blob, name)); });
 
@@ -217,7 +234,10 @@ function OrganizeWorkspace({ file, language, run, setResult, busy }: { file: Fil
         <button onClick={rotateSelected} disabled={!selected.size || busy}>ROTATE</button><button onClick={duplicateSelected} disabled={!selected.size || busy}>DUPLICATE</button><button onClick={extractSelected} disabled={!selected.size || busy}>EXTRACT</button><button onClick={deleteSelected} disabled={!selected.size || selected.size >= pages.length || busy}>DELETE</button>
         <button className="primary-button small" onClick={exportPdf} disabled={busy}>EXPORT PDF ↗</button>
       </div></div>
-      <div className="page-grid">{pages.map((page, index) => <button type="button" className={`page-card ${selected.has(index) ? "selected" : ""}`} key={`${page.sourceIndex}-${index}`} draggable={!busy} onDragStart={() => { dragIndex.current = index; }} onDragOver={(event) => event.preventDefault()} onDrop={() => { const from = dragIndex.current; if (from === null || from === index) return; const next = [...pages]; const [moved] = next.splice(from, 1); next.splice(index, 0, moved); commit(next); dragIndex.current = null; }} onClick={() => setSelected((value) => { const next = new Set(value); next.has(index) ? next.delete(index) : next.add(index); return next; })}><div className="page-thumb" style={{ transform: `rotate(${page.rotation}deg)` }}>{thumbs[page.sourceIndex] ? <img src={thumbs[page.sourceIndex]} alt={`Page ${page.sourceIndex + 1}`} /> : <div className="thumb-skeleton" />}</div><span className="mono">{String(index + 1).padStart(2, "0")}</span></button>)}</div>
+      <div className="page-grid">{pages.map((page, index) => <div className={`page-card ${selected.has(index) ? "selected" : ""} ${dragOverIndex === index ? "drag-over" : ""}`} key={`${page.sourceIndex}-${index}`} onDragOver={(event) => { event.preventDefault(); setDragOverIndex(index); }} onDragLeave={() => setDragOverIndex((value) => value === index ? null : value)} onDrop={() => { const from = dragIndex.current; setDragOverIndex(null); if (from === null || from === index) return; const next = [...pages]; const [moved] = next.splice(from, 1); next.splice(index, 0, moved); commit(next); dragIndex.current = null; }}>
+        <button type="button" className="page-select" aria-pressed={selected.has(index)} aria-label={`${language === "th" ? "เลือกหน้า" : "Select page"} ${index + 1}`} onClick={(event) => selectPage(index, event)}><div className="page-thumb" style={{ transform: `rotate(${page.rotation}deg)` }}>{thumbs[page.sourceIndex] ? <img src={thumbs[page.sourceIndex]} alt={`Page ${page.sourceIndex + 1}`} /> : <div className="thumb-skeleton" />}</div><span className="mono">{String(index + 1).padStart(2, "0")}</span></button>
+        <button type="button" className="page-drag-handle" draggable={!busy} aria-label={`${language === "th" ? "ลากเพื่อจัดลำดับหน้า" : "Drag to reorder page"} ${index + 1}`} onDragStart={(event) => { dragIndex.current = index; event.dataTransfer.effectAllowed = "move"; }} onDragEnd={() => { dragIndex.current = null; setDragOverIndex(null); }}>⋮⋮</button>
+      </div>)}</div>
     </div>
   );
 }
@@ -228,7 +248,7 @@ function SplitWorkspace({ file, language, run, update, setResult, busy }: { file
   useEffect(() => { getPdfPageCount(file).then(setPageCount).catch(() => setPageCount(0)); }, [file]);
   const extract = () => run("EXTRACTING", 1, async () => { const indices = parsePageRange(range, pageCount); if (!indices.length) throw new Error(language === "th" ? "ใช้รูปแบบเช่น 1-3, 5, 8-10" : "Use a range like 1-3, 5, 8-10."); const blob = await extractPdfPages(file, indices); const name = `${file.name.replace(/\.pdf$/i, "")}-extract.pdf`; downloadBlob(blob, name); setResult(makeSingleResult(language === "th" ? "ดึงหน้าที่เลือกแล้ว" : "PAGES EXTRACTED", file, blob, name)); });
   const split = () => run("SPLITTING PDF", pageCount || 1, async () => { const outputs = await splitPdfIntoPages(file, update("SPLITTING PDF")); await downloadZip(outputs, `${file.name.replace(/\.pdf$/i, "")}-pages.zip`); setResult({ label: language === "th" ? `แยก ${outputs.length} หน้าแล้ว` : `${outputs.length} PAGES SPLIT`, entries: outputs, before: file.size, after: outputs.reduce((sum, item) => sum + item.blob.size, 0) }); });
-  return <div className="workspace-grid"><div className="preview-document"><span className="doc-mark">PDF</span><h2>{file.name}</h2><span>{pageCount || "—"} {language === "th" ? "หน้า" : "pages"} · {formatBytes(file.size)}</span></div><aside className="action-card"><label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={range} onChange={(event) => setRange(event.target.value)} placeholder="1-3, 5, 8-10" /></label><p>{language === "th" ? "ดึงหน้าที่ต้องการเป็น PDF เดียว หรือแยกทุกหน้าเป็น ZIP" : "Extract selected pages into one PDF, or split every page into a ZIP."}</p><button className="primary-button" disabled={busy} onClick={extract}>{language === "th" ? "ดึงหน้าที่เลือก" : "EXTRACT RANGE"} ↗</button><button className="secondary-button" disabled={busy} onClick={split}>{language === "th" ? "แยกทุกหน้าเป็น ZIP" : "SPLIT ALL TO ZIP"}</button></aside></div>;
+  return <div className="workspace-grid"><PdfPreview file={file} language={language} /><aside className="action-card"><span className="muted">{pageCount || "—"} {language === "th" ? "หน้า" : "pages"} · {formatBytes(file.size)}</span><label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={range} onChange={(event) => setRange(event.target.value)} placeholder="1-3, 5, 8-10" /></label><p>{language === "th" ? "ดึงหน้าที่ต้องการเป็น PDF เดียว หรือแยกทุกหน้าเป็น ZIP" : "Extract selected pages into one PDF, or split every page into a ZIP."}</p><button className="primary-button" disabled={busy} onClick={extract}>{language === "th" ? "ดึงหน้าที่เลือก" : "EXTRACT RANGE"} ↗</button><button className="secondary-button" disabled={busy} onClick={split}>{language === "th" ? "แยกทุกหน้าเป็น ZIP" : "SPLIT ALL TO ZIP"}</button></aside></div>;
 }
 
 function PageNumbersWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
@@ -264,12 +284,24 @@ function ImagesToPdfWorkspace({ files, language, run, update, setResult, busy }:
 
 function PdfToImagesWorkspace({ file, language, run, update, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
   const process = () => run("RENDERING PDF", 1, async () => { const outputs = await pdfToPngs(file, update("RENDERING PDF")); await downloadZip(outputs, `${file.name.replace(/\.pdf$/i, "")}-images.zip`); setResult({ label: language === "th" ? `แปลง ${outputs.length} หน้าเป็น PNG แล้ว` : `${outputs.length} PDF PAGES → PNG`, entries: outputs, before: file.size, after: outputs.reduce((sum, item) => sum + item.blob.size, 0) }); });
-  return <div className="workspace-grid"><div className="preview-document"><span className="doc-mark">PDF</span><h2>{file.name}</h2><span>{formatBytes(file.size)}</span></div><aside className="action-card"><h2>PNG EXPORT</h2><p>{language === "th" ? "เรนเดอร์ทุกหน้าเป็น PNG และรวมผลลัพธ์เป็น ZIP" : "Render every page as PNG and bundle the results as ZIP."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "แปลงและดาวน์โหลด ZIP" : "CONVERT & DOWNLOAD ZIP"} ↗</button></aside></div>;
+  return <div className="workspace-grid"><PdfPreview file={file} language={language} /><aside className="action-card"><h2>PNG EXPORT</h2><p>{language === "th" ? "เรนเดอร์ทุกหน้าเป็น PNG และรวมผลลัพธ์เป็น ZIP" : "Render every page as PNG and bundle the results as ZIP."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "แปลงและดาวน์โหลด ZIP" : "CONVERT & DOWNLOAD ZIP"} ↗</button></aside></div>;
 }
 
 function PdfWatermarkWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
   const [text, setText] = useState("CONFIDENTIAL");
   const [opacity, setOpacity] = useState(16);
-  const process = () => run("WATERMARKING PDF", 1, async () => { const blob = await watermarkPdf(file, text, opacity / 100); const name = `${file.name.replace(/\.pdf$/i, "")}-watermarked.pdf`; downloadBlob(blob, name); setResult(makeSingleResult(language === "th" ? "ใส่ลายน้ำแล้ว" : "WATERMARK APPLIED", file, blob, name)); });
-  return <div className="workspace-grid"><div className="preview-document"><span className="doc-mark">PDF</span><h2>{file.name}</h2><span>{formatBytes(file.size)}</span></div><aside className="action-card"><label>{language === "th" ? "ข้อความลายน้ำ" : "WATERMARK TEXT"}<input value={text} onChange={(event) => setText(event.target.value)} /></label><label>{language === "th" ? "ความทึบ" : "OPACITY"} · {opacity}%<input type="range" min="5" max="55" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label><p>{language === "th" ? "ใส่ลายน้ำกึ่งกลางทุกหน้าโดยประมวลผลในเบราว์เซอร์" : "Apply a centered watermark to every page in the browser."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "ใส่ลายน้ำ" : "APPLY & DOWNLOAD"} ↗</button></aside></div>;
+  const [fontSize, setFontSize] = useState(44);
+  const [rotation, setRotation] = useState(-24);
+  const [color, setColor] = useState("#202320");
+  const [position, setPosition] = useState<PdfWatermarkOptions["position"]>("center");
+  const [pages, setPages] = useState<PdfWatermarkOptions["pages"]>("all");
+  const [customPages, setCustomPages] = useState("1-3, 6");
+  const positions: PdfWatermarkOptions["position"][] = ["top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right"];
+  const process = () => run("WATERMARKING PDF", 1, async () => {
+    const blob = await watermarkPdf(file, { text, opacity: opacity / 100, fontSize, rotation, color, position, pages, customPages });
+    const name = `${file.name.replace(/\.pdf$/i, "")}-watermarked.pdf`;
+    downloadBlob(blob, name);
+    setResult(makeSingleResult(language === "th" ? "ใส่ลายน้ำแล้ว" : "WATERMARK APPLIED", file, blob, name));
+  });
+  return <div className="workspace-grid"><PdfPreview file={file} language={language} /><aside className="action-card pdf-watermark-controls"><label>{language === "th" ? "ข้อความลายน้ำ" : "WATERMARK TEXT"}<input value={text} onChange={(event) => setText(event.target.value)} /></label><div className="field-pair"><label>{language === "th" ? "ขนาด" : "FONT SIZE"}<input type="number" min="8" max="144" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label><label>{language === "th" ? "สี" : "COLOR"}<input type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label></div><label>{language === "th" ? "ความทึบ" : "OPACITY"} · {opacity}%<input type="range" min="5" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label><label>{language === "th" ? "การหมุน" : "ROTATION"} · {rotation}°<input type="range" min="-180" max="180" value={rotation} onChange={(event) => setRotation(Number(event.target.value))} /></label><span className="control-section-title">{language === "th" ? "ตำแหน่ง" : "POSITION"}</span><div className="watermark-position-grid">{positions.map((value) => <button type="button" key={value} className={position === value ? "active" : ""} aria-label={value} onClick={() => setPosition(value)}>{value.replace(/top|bottom|center/g, (part) => part === "top" ? "↑" : part === "bottom" ? "↓" : "•")}</button>)}</div><label>{language === "th" ? "ใช้กับหน้า" : "PAGES"}<select value={pages} onChange={(event) => setPages(event.target.value as PdfWatermarkOptions["pages"])}><option value="all">{language === "th" ? "ทั้งหมด" : "All"}</option><option value="odd">{language === "th" ? "หน้าคี่" : "Odd"}</option><option value="even">{language === "th" ? "หน้าคู่" : "Even"}</option><option value="custom">{language === "th" ? "กำหนดเอง" : "Custom"}</option></select></label>{pages === "custom" && <label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={customPages} onChange={(event) => setCustomPages(event.target.value)} placeholder="1-3, 6, 9-12" /></label>}<p>{language === "th" ? "ประมวลผลบนอุปกรณ์และตรวจสอบช่วงหน้าก่อนส่งออก" : "Processed on-device with page-range validation before export."}</p><button className="primary-button" disabled={busy || !text.trim()} onClick={process}>{language === "th" ? "ใส่ลายน้ำ" : "APPLY & DOWNLOAD"} ↗</button></aside></div>;
 }

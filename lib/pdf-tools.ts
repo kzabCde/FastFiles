@@ -33,6 +33,17 @@ export type PdfMetadata = {
   modificationDate?: string;
 };
 
+export type PdfWatermarkOptions = {
+  text: string;
+  opacity: number;
+  fontSize: number;
+  rotation: number;
+  color: string;
+  position: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
+  pages: "all" | "odd" | "even" | "custom";
+  customPages?: string;
+};
+
 async function loadPdf(file: File) {
   try {
     return await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: false });
@@ -104,28 +115,46 @@ export async function organizePdf(file: File, pages: PdfPageState[]) {
   return bytesToBlob(bytes, "application/pdf");
 }
 
-export async function watermarkPdf(file: File, text: string, opacity = 0.16) {
-  if (!text.trim()) throw new Error("Enter watermark text first.");
+export async function watermarkPdf(file: File, options: PdfWatermarkOptions) {
+  const text = options.text.trim();
+  if (!text) throw new Error("Enter watermark text first.");
   const pdf = await loadPdf(file);
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const custom = options.pages === "custom" ? new Set(parsePageRange(options.customPages ?? "", pdf.getPageCount())) : null;
+  if (options.pages === "custom" && !custom?.size) throw new Error("Enter a valid page range such as 1-3, 6, 9-12.");
+  const color = hexToRgb(options.color);
 
-  pdf.getPages().forEach((page) => {
+  pdf.getPages().forEach((page, index) => {
+    if (options.pages === "odd" && (index + 1) % 2 === 0) return;
+    if (options.pages === "even" && (index + 1) % 2 !== 0) return;
+    if (custom && !custom.has(index)) return;
     const { width, height } = page.getSize();
-    const size = Math.max(28, Math.min(64, width / Math.max(8, text.length * 0.65)));
+    const size = Math.max(8, Math.min(144, options.fontSize));
     const textWidth = font.widthOfTextAtSize(text, size);
+    const margin = Math.max(18, size * 0.75);
+    const horizontal = options.position.split("-").at(-1);
+    const vertical = options.position.split("-")[0];
+    const x = horizontal === "left" ? margin : horizontal === "right" ? width - margin - textWidth : (width - textWidth) / 2;
+    const y = vertical === "top" ? height - margin - size : vertical === "bottom" ? margin : height / 2;
     page.drawText(text, {
-      x: (width - textWidth) / 2,
-      y: height / 2,
+      x,
+      y,
       size,
       font,
-      color: rgb(0.12, 0.12, 0.1),
-      opacity,
-      rotate: degrees(-24),
+      color: rgb(color.r, color.g, color.b),
+      opacity: Math.max(0.05, Math.min(1, options.opacity)),
+      rotate: degrees(options.rotation),
     });
   });
 
   const bytes = await pdf.save({ useObjectStreams: true });
   return bytesToBlob(bytes, "application/pdf");
+}
+
+function hexToRgb(value: string) {
+  const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(value);
+  if (!match) return { r: 0.12, g: 0.12, b: 0.1 };
+  return { r: Number.parseInt(match[1], 16) / 255, g: Number.parseInt(match[2], 16) / 255, b: Number.parseInt(match[3], 16) / 255 };
 }
 
 export async function addPdfPageNumbers(file: File, options: PageNumberOptions) {
@@ -265,6 +294,35 @@ export async function renderPdfThumbnails(
   }
 
   return urls;
+}
+
+export async function renderPdfPage(
+  file: File,
+  canvas: HTMLCanvasElement,
+  pageNumber: number,
+  options: { scale?: number; maxWidth?: number; maxHeight?: number } = {},
+) {
+  const pdfjs = await getPdfJs();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  try {
+    const resolvedPage = Math.max(1, Math.min(doc.numPages, pageNumber));
+    const page = await doc.getPage(resolvedPage);
+    const base = page.getViewport({ scale: 1 });
+    const widthScale = options.maxWidth ? options.maxWidth / base.width : Number.POSITIVE_INFINITY;
+    const heightScale = options.maxHeight ? options.maxHeight / base.height : Number.POSITIVE_INFINITY;
+    const scale = Math.max(0.25, Math.min(4, options.scale ?? 1, widthScale, heightScale));
+    const viewport = page.getViewport({ scale });
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Canvas is not available in this browser.");
+    await page.render({ canvasContext: context, viewport }).promise;
+    page.cleanup();
+    return { pageNumber: resolvedPage, pageCount: doc.numPages, width: viewport.width, height: viewport.height };
+  } finally {
+    await doc.destroy();
+  }
 }
 
 export async function pdfToPngs(file: File, onProgress?: (done: number, total: number) => void): Promise<ExportedFile[]> {

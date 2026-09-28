@@ -4,6 +4,15 @@
 
 FastFiles is a privacy-focused, local-first PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
 
+## FastFiles v0.3.1 — Stability Hotfix
+
+- Removed automatic page reloads when a service worker first takes control or updates.
+- Fixed PDF Organizer primary-action contrast and tightened accessibility regression coverage.
+- Added stable visual baselines for desktop, mobile, editor, watermark, organizer, result, and QR surfaces; PDF thumbnail raster content is masked while preserving layout coverage.
+- Preserved center logos in SVG QR downloads, matching PNG output.
+- Corrected visible version strings and clarified that AVIF is runtime-gated for export rather than advertised as a supported input.
+- Pinned a patched PostCSS 8 release through npm overrides while remaining on Next 15, with npm audit enforced by CI.
+
 ## FastFiles v0.3.0 — Editing Experience & Product Quality
 
 FastFiles v0.3.0 turns the existing local-first tools into a more complete browser productivity workspace without adding accounts, databases, permanent file storage, or unnecessary uploads.

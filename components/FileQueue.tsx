@@ -103,7 +103,7 @@ function messageFor(code: string, language: "en" | "th") {
   const messages: Record<string, [string, string]> = {
     "zero-byte": ["This file is empty.", "ไฟล์นี้ไม่มีข้อมูล"],
     unsupported: ["This file type is not supported.", "ยังไม่รองรับไฟล์ประเภทนี้"],
-    "unsupported-image": ["This image format is not supported in v0.2.", "เวอร์ชันนี้ยังไม่รองรับรูปแบบภาพนี้"],
+    "unsupported-image": ["This image format is not supported.", "ยังไม่รองรับรูปแบบภาพนี้"],
     "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
     "invalid-pdf": ["The PDF appears to be corrupted or invalid.", "ไฟล์ PDF อาจเสียหายหรือรูปแบบไม่ถูกต้อง"],
     "password-pdf": ["Password-protected PDFs are not supported yet.", "ยังไม่รองรับ PDF ที่มีรหัสผ่าน"],

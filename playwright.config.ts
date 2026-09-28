@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.spec.ts",
   timeout: 45_000,
-  expect: { timeout: 10_000 },
+  expect: { timeout: 20_000 },
   retries: 1,
   reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   use: {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Stabilized PWA service-worker activation without automatic reloads.
+- Fixed organizer action contrast, QR SVG logo export parity, version labels, and AVIF input messaging.
+- Added deterministic visual baselines and release-gate checks.
+- Patched transitive PostCSS security advisories without a Next major-version jump.
+
 ## 0.3.0 — 2026-09-28
 
 ### Added

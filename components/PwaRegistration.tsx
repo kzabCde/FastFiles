@@ -5,17 +5,13 @@ import { useEffect } from "react";
 export default function PwaRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator) || process.env.NODE_ENV !== "production") return;
-    let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
-    });
+    let cancelled = false;
     void navigator.serviceWorker.register("/sw.js").then((registration) => {
-      void registration.update();
+      if (!cancelled) void registration.update();
     }).catch(() => {
-      // The application remains fully usable when service workers are unavailable.
+      // FastFiles remains fully usable when service workers are unavailable.
     });
+    return () => { cancelled = true; };
   }, []);
   return null;
 }

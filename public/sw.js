@@ -1,8 +1,8 @@
-const CACHE_NAME = "fastfiles-shell-v0.3.0";
+const CACHE_NAME = "fastfiles-shell-v0.3.1";
 const APP_SHELL = ["/", "/qr", "/tools/image-convert", "/tools/watermark", "/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
 });
 
 self.addEventListener("activate", (event) => {

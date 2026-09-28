@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { downloadBlob } from "@/lib/download";
+import { addLogoToSvg } from "@/lib/qr-tools";
 import styles from "./QRGenerator.module.css";
 
 type Language = "en" | "th";
@@ -154,6 +155,15 @@ function loadImage(source: string) {
   });
 }
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Unable to read QR logo."));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function QRGenerator({ language, theme, onBack, onToggleLanguage, onThemeChange }: Props) {
   const t = labels[language];
   const [type, setType] = useState<QrType>("url");
@@ -245,8 +255,9 @@ export default function QRGenerator({ language, theme, onBack, onToggleLanguage,
     downloadBlob(blob, "fastfiles-qr.png");
   };
 
-  const downloadSvg = () => {
-    downloadBlob(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }), "fastfiles-qr.svg");
+  const downloadSvg = async () => {
+    const markup = logo ? addLogoToSvg(svg, await fileToDataUrl(logo), logoSize) : svg;
+    downloadBlob(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }), "fastfiles-qr.svg");
   };
 
   const copyContent = async () => {

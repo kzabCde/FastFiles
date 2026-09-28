@@ -71,7 +71,7 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
   "pdf-metadata": { en: "View and clear supported document metadata", th: "ดูและล้างข้อมูลเอกสารที่รองรับ" },
   "images-to-pdf": { en: "Turn JPG, PNG and WebP into PDF", th: "รวม JPG, PNG และ WebP เป็น PDF" },
   "pdf-to-images": { en: "Export PDF pages as PNG images", th: "แปลงหน้า PDF ออกเป็น PNG" },
-  "image-convert": { en: "Convert JPG, PNG, WebP and supported AVIF", th: "แปลง JPG, PNG, WebP และ AVIF เมื่อเบราว์เซอร์รองรับ" },
+  "image-convert": { en: "Export JPG, PNG, WebP and AVIF when supported", th: "ส่งออก JPG, PNG, WebP และ AVIF เมื่อเบราว์เซอร์รองรับ" },
   "image-resize": { en: "Resize one image or a whole batch", th: "ปรับขนาดรูปเดี่ยวหรือหลายรูปพร้อมกัน" },
   "image-compress": { en: "Reduce image size for web and sharing", th: "ลดขนาดรูปสำหรับเว็บและการแชร์" },
   watermark: { en: "Add a clean text watermark to files", th: "เพิ่มลายน้ำข้อความให้ PDF หรือรูปภาพ" },
@@ -213,7 +213,7 @@ export default function FastFilesApp() {
       <section className="hero-section">
         <div className="hero-wrap">
           <div className="hero-copy">
-            <div className="product-pill"><span className="live-dot" /> FastFiles v0.2.1</div>
+            <div className="product-pill"><span className="live-dot" /> FastFiles v0.3.1</div>
             <h1>{t.hero}</h1>
             <p className="hero-body">{t.body}</p>
             <div className="trust-row">

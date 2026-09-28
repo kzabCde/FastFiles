@@ -33,7 +33,8 @@ test("@visual stable editor, watermark, organizer, and result surfaces", async (
   await page.goto("/tools/organize-pdf");
   await page.locator('input[type="file"]').setInputFiles({ name: "organizer.pdf", mimeType: "application/pdf", buffer: Buffer.from(await document.save()) });
   await expect(page.getByLabel("PDF organizer")).toBeVisible();
-  await expect(page).toHaveScreenshot("pdf-organizer.png", { fullPage: true, animations: "disabled" });
+  await expect(page.locator(".page-thumb img")).toHaveCount(2);
+  await expect(page).toHaveScreenshot("pdf-organizer.png", { fullPage: true, animations: "disabled", mask: [page.locator(".page-thumb img")] });
 });
 
 test("@visual stable mobile home and menu", async ({ page }) => {

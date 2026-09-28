@@ -103,7 +103,8 @@ function messageFor(code: string, language: "en" | "th") {
   const messages: Record<string, [string, string]> = {
     "zero-byte": ["This file is empty.", "ไฟล์นี้ไม่มีข้อมูล"],
     unsupported: ["This file type is not supported.", "ยังไม่รองรับไฟล์ประเภทนี้"],
-    "unsupported-image": ["This image format is not supported in v0.2.", "เวอร์ชันนี้ยังไม่รองรับรูปแบบภาพนี้"],
+    "unsupported-image": ["This image format is not supported by FastFiles.", "FastFiles ยังไม่รองรับรูปแบบภาพนี้"],
+    "unsupported-avif": ["This browser cannot decode this AVIF image. Try a current Chromium, Firefox, or Safari release, or convert it first.", "เบราว์เซอร์นี้ไม่สามารถอ่านภาพ AVIF ไฟล์นี้ได้ กรุณาใช้เบราว์เซอร์เวอร์ชันปัจจุบันหรือแปลงไฟล์ก่อน"],
     "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
     "invalid-pdf": ["The PDF appears to be corrupted or invalid.", "ไฟล์ PDF อาจเสียหายหรือรูปแบบไม่ถูกต้อง"],
     "password-pdf": ["Password-protected PDFs are not supported yet.", "ยังไม่รองรับ PDF ที่มีรหัสผ่าน"],

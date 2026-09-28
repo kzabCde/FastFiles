@@ -24,7 +24,8 @@ export type QueueSummary = {
   totalPages: number;
 };
 
-const imageExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+const imageExtensions = new Set(["jpg", "jpeg", "png", "webp", "avif"]);
+const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 
 export function queueId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}:${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
@@ -54,7 +55,7 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
   }
 
   const ext = file.name.toLowerCase().split(".").pop() ?? "";
-  if (!imageExtensions.has(ext) && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+  if (!imageExtensions.has(ext) && !imageMimeTypes.has(file.type)) {
     return { id, file, kind, status: "error", message: "unsupported-image" };
   }
 
@@ -71,7 +72,7 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
       height,
     };
   } catch {
-    return { id, file, kind, status: "error", message: "invalid-image" };
+    return { id, file, kind, status: "error", message: ext === "avif" || file.type === "image/avif" ? "unsupported-avif" : "invalid-image" };
   }
 }
 
@@ -104,5 +105,6 @@ function mimeMatchesExtension(mime: string, extension: string) {
   if (mime === "image/jpeg") return extension === "jpg" || extension === "jpeg";
   if (mime === "image/png") return extension === "png";
   if (mime === "image/webp") return extension === "webp";
+  if (mime === "image/avif") return extension === "avif";
   return true;
 }

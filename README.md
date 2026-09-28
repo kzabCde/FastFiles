@@ -23,6 +23,21 @@ FastFiles v0.3.0 turns the existing local-first tools into a more complete brows
 
 Core processing stays in the browser. Legacy Resize and Compress routes remain compatible and continue into the consolidated Image Editor.
 
+### Image Editor performance acceleration — v0.3.1 hotfix
+
+The v0.3.1 stability work adds a capability-gated accelerated export path for the Image Editor:
+
+- crop, resize, rotate, flip, format conversion, and compression can run in a dedicated Web Worker instead of blocking the UI thread
+- supported browsers use `OffscreenCanvas` plus `createImageBitmap` for full-resolution transform and encode work
+- a single worker session is reused across a batch to avoid repeated worker startup overhead
+- batch items remain sequential, which reduces peak decoded-image/canvas memory for high-resolution files
+- existing progress callbacks and `AbortSignal` cancellation remain intact
+- `ImageBitmap` resources and worker instances are explicitly released after use
+- if Worker/OffscreenCanvas/worker encoding is unavailable, FastFiles automatically falls back to the existing Canvas renderer
+- Watermark export intentionally stays on the established Canvas path for now so live preview and full-resolution watermark geometry keep using the same renderer
+
+This acceleration remains fully local to the browser and does not upload images. Chromium validates the accelerated export path; Firefox/WebKit retain compatible fallback behavior where the required APIs are unavailable. Browser-specific timing flakiness in the live preview tests is tracked separately from the export worker.
+
 ## v0.2.1 — QR Generator, Dedicated Routes & Focused Image Tools
 
 ### Grouped navigation
@@ -160,6 +175,7 @@ Image re-encoding uses browser Canvas APIs. Re-encoding commonly drops source me
 - Offline use requires one successful online load of the relevant app bundles first.
 - Codec quality changes are reflected in estimated/output size; the preview is not intended to simulate exact JPEG/WebP/AVIF compression artifacts before export.
 - Copying a QR image depends on browser support for writing PNG blobs to the Clipboard API; PNG/SVG downloads remain available when image clipboard writes are unavailable.
+- Worker/OffscreenCanvas acceleration is capability-gated; unsupported browsers use the established main-thread Canvas fallback.
 
 ## Development
 
@@ -195,11 +211,18 @@ npm run test:e2e
 - `components/ResultCenter.tsx` — reusable single/batch output UI
 - `lib/file-intake.ts` — local validation, queue summaries and workload checks
 - `lib/pdf-tools.ts` — pdf-lib + bundled PDF.js rendering/processing
-- `lib/image-tools.ts` — full-resolution Canvas export, crop geometry, watermark rendering and partial batch recovery
+- `lib/image-tools.ts` — full-resolution Canvas export, crop geometry, watermark rendering, worker acceleration and partial batch recovery
+- `lib/image-worker-client.ts` — browser capability detection and accelerated worker lifecycle
+- `workers/image-processor.worker.ts` — OffscreenCanvas image transform and encoding worker
 - `lib/tools.ts` — tool metadata, legacy compatibility, file detection and smart action filtering
 - `lib/download.ts` — safe filenames, Blob downloads and ZIP creation
 
 ## Changelog
+
+### 0.3.1 (in progress)
+
+- Added capability-gated Web Worker + OffscreenCanvas acceleration for Image Editor export and batch processing.
+- Kept a safe Canvas fallback for unsupported browsers and Watermark rendering.
 
 ### 0.3.0
 

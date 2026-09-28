@@ -37,7 +37,7 @@ export const TOOLS: ToolDefinition[] = [
   { id: "pdf-metadata", label: "PDF Metadata", thai: "ข้อมูล PDF", short: "METADATA", accepts: ["pdf"], aliases: ["pdf metadata", "document info", "remove metadata", "ข้อมูล pdf", "ลบ metadata"] },
   { id: "images-to-pdf", label: "Images to PDF", thai: "รูปภาพเป็น PDF", short: "IMAGE → PDF", accepts: ["image"], multiple: true, aliases: ["jpg to pdf", "png to pdf", "images to pdf", "รูปเป็น pdf", "ภาพเป็น pdf"] },
   { id: "pdf-to-images", label: "PDF to Images", thai: "PDF เป็นรูปภาพ", short: "PDF → IMAGE", accepts: ["pdf"], aliases: ["pdf to jpg", "pdf to png", "pdf to image", "pdf เป็นรูป", "แปลง pdf เป็นรูป"] },
-  { id: "image-convert", label: "Image Editor", thai: "แก้ไขรูปภาพ", short: "IMAGE EDIT", accepts: ["image"], multiple: true, aliases: ["image editor", "convert image", "resize image", "compress image", "crop image", "jpg to webp", "png to jpg", "แก้ไขรูปภาพ", "แปลงรูป", "ปรับขนาดรูป", "บีบอัดรูป", "ตัดรูป"] },
+  { id: "image-convert", label: "Image Editor", thai: "แก้ไขรูปภาพ", short: "IMAGE EDIT", accepts: ["image"], multiple: true, aliases: ["image editor", "convert image", "resize image", "compress image", "crop image", "jpg to webp", "png to jpg", "avif", "แก้ไขรูปภาพ", "แปลงรูป", "ปรับขนาดรูป", "บีบอัดรูป", "ตัดรูป"] },
   { id: "watermark", label: "Watermark", thai: "ใส่ลายน้ำ", short: "WATERMARK", accepts: ["pdf", "image"], aliases: ["watermark pdf", "watermark image", "add watermark", "image watermark", "ลายน้ำ", "ใส่ลายน้ำ", "ลายน้ำรูป"] },
 ];
 
@@ -46,7 +46,7 @@ export const ALL_TOOLS: ToolDefinition[] = [...TOOLS, ...LEGACY_IMAGE_TOOLS];
 export function kindOf(file: File): "pdf" | "image" | "unsupported" {
   const name = file.name.toLowerCase();
   if (file.type === "application/pdf" || name.endsWith(".pdf")) return "pdf";
-  if (["image/jpeg", "image/png", "image/webp"].includes(file.type) || /\.(jpe?g|png|webp)$/i.test(name)) return "image";
+  if (["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type) || /\.(jpe?g|png|webp|avif)$/i.test(name)) return "image";
   return "unsupported";
 }
 

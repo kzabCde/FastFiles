@@ -36,7 +36,7 @@ The v0.3.1 stability work adds a capability-gated accelerated export path for th
 - if Worker/OffscreenCanvas/worker encoding is unavailable, FastFiles automatically falls back to the existing Canvas renderer
 - Watermark export intentionally stays on the established Canvas path for now so live preview and full-resolution watermark geometry keep using the same renderer
 
-This acceleration remains fully local to the browser and does not upload images.
+This acceleration remains fully local to the browser and does not upload images. Chromium validates the accelerated export path; Firefox/WebKit retain compatible fallback behavior where the required APIs are unavailable. Browser-specific timing flakiness in the live preview tests is tracked separately from the export worker.
 
 ## v0.2.1 — QR Generator, Dedicated Routes & Focused Image Tools
 

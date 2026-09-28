@@ -4,6 +4,25 @@
 
 FastFiles is a privacy-focused, local-first PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
 
+## FastFiles v0.3.0 — Editing Experience & Product Quality
+
+FastFiles v0.3.0 turns the existing local-first tools into a more complete browser productivity workspace without adding accounts, databases, permanent file storage, or unnecessary uploads.
+
+### Highlights
+
+- **Image Editor V3** — full-resolution export backed by a lightweight live preview, freeform/preset crop, eight resize handles, zoom/pan, 90° and custom rotation, flip, Before/After, Reset, and state-only Undo/Redo.
+- **Resize and compression** — Original/25%/50%/75%/1080px/1920px/1440p/4K presets, custom dimensions, aspect lock, four quality presets, estimated pre-export size, and actual Result Center metrics.
+- **Watermark V2** — text or PNG/JPG/WebP logo watermark, nine presets or normalized drag positioning, size, opacity, rotation, color, weight, shadow intensity, margin, and tiled repeat mode.
+- **Batch images** — filmstrip preview with All/Selected/Current scope, partial-success reporting, ZIP download, cancellation between files, and retry of failed items.
+- **PDF Organizer V3** — click/Ctrl/Cmd/Shift selection, contextual bulk actions, dedicated drag handles, insertion feedback, Undo/Redo, and progressive thumbnails.
+- **PDF Preview** — previous/next page, page entry, zoom, 100%, Fit Width, Fit Page, and focused Left/Right keyboard navigation.
+- **PDF Watermark V2** — color, size, opacity, rotation, nine positions, and All/Odd/Even/validated custom page targeting.
+- **QR Generator V2** — Text, Website, Wi-Fi, Email, Phone, SMS, and vCard Contact payloads; optional PNG/WebP center logo; automatic correction-H selection and contrast/margin/logo safety warnings.
+- **Installable PWA** — versioned app-shell caching and update handling. The service worker does not cache Blob/Data URLs, uploads, generated outputs, or QR payloads.
+- **Quality gate** — TypeScript, ESLint, Vitest, production build, Chromium/Firefox/WebKit plus mobile/tablet projects, axe accessibility checks, and stable Playwright visual snapshots.
+
+Core processing stays in the browser. Legacy Resize and Compress routes remain compatible and continue into the consolidated Image Editor.
+
 ## v0.2.1 — QR Generator, Dedicated Routes & Focused Image Tools
 
 ### Grouped navigation
@@ -103,7 +122,7 @@ Advanced PDF compression is intentionally **not** advertised in v0.2. The curren
 - Retry failed batch items
 - Cancel between batch items without reloading the application
 
-The current crop handles are visual guides. v0.2 supports preset aspect ratios plus drag-to-reposition; arbitrary freeform corner-resizing is intentionally not claimed yet. Codec-quality controls affect the actual exported file, while the live canvas focuses on geometric edits rather than pretending to reproduce exact compression artifacts before encoding.
+Codec-quality controls affect the actual exported file, while the live canvas focuses on geometric edits rather than pretending to reproduce exact JPEG/WebP/AVIF compression artifacts before encoding.
 
 ### Result Center
 
@@ -128,14 +147,17 @@ Image re-encoding uses browser Canvas APIs. Re-encoding commonly drops source me
 
 ## Known limitations
 
-- Password-protected PDFs are detected but cannot be unlocked in v0.2.
+- Password-protected PDFs are detected but cannot be unlocked.
 - PDF metadata clearing targets text fields supported by `pdf-lib`; document dates or other low-level metadata may remain.
 - Browser memory limits vary by device, browser and file content. FastFiles intentionally does not publish an unverified maximum file size.
 - AVIF export is hidden when the browser cannot produce a valid AVIF Blob.
-- HEIC/HEIF export is not part of v0.2.
+- HEIC/HEIF export is not currently supported.
 - Batch cancellation occurs between files; an individual Canvas/PDF operation that has already started may need to finish before cancellation takes effect.
-- Live crop currently supports aspect-ratio presets and repositioning, not arbitrary freeform crop resizing.
-- Watermark v0.2.1 is text-based; image/logo watermark uploads are not implemented yet.
+- Extremely large images or PDFs can exceed device/browser memory despite progressive rendering and workload warnings.
+- Custom image rotation expands the image bounds; transparent corners become white when exporting JPEG.
+- PDF watermark preview shows the source document viewer; the exact applied watermark is visible after export.
+- QR styling and logos cannot guarantee successful scanning across every camera, print surface, lighting condition, or damage level.
+- Offline use requires one successful online load of the relevant app bundles first.
 - Codec quality changes are reflected in estimated/output size; the preview is not intended to simulate exact JPEG/WebP/AVIF compression artifacts before export.
 - Copying a QR image depends on browser support for writing PNG blobs to the Clipboard API; PNG/SVG downloads remain available when image clipboard writes are unavailable.
 
@@ -152,11 +174,13 @@ Then open `http://localhost:3000`.
 
 ```bash
 npm run typecheck
+npm run lint
+npm run test:unit
 npm run build
 npm run test:e2e
 ```
 
-Playwright verifies Chromium, Firefox and WebKit. The suite covers File Queue intake/error states, mobile overflow, in-workspace TH/EN switching, partial batch retry, PDF page numbering, metadata handling, progressive PDF thumbnails, live image editing, advanced image watermark controls, grouped tool dropdown navigation, dedicated tool pages, URL/Wi-Fi QR generation, PNG/SVG QR downloads, QR color updates, theme/language compatibility and mobile QR layout.
+`npm run quality` runs the complete local release gate. Playwright covers Chromium, Firefox, WebKit, 390 × 844 mobile, and tablet projects. Dedicated suites cover accessibility and visual regression.
 
 ## Architecture
 
@@ -176,6 +200,16 @@ Playwright verifies Chromium, Firefox and WebKit. The suite covers File Queue in
 - `lib/download.ts` — safe filenames, Blob downloads and ZIP creation
 
 ## Changelog
+
+### 0.3.0
+
+- Added Image Editor V3 editing, view, history, resize, compression, and batch-scope controls.
+- Added text/image Watermark V2 with normalized preview/export geometry and repeat mode.
+- Added lightweight PDF Preview and expanded PDF watermark page/style controls.
+- Improved PDF organizer selection and drag affordances.
+- Added Contact QR, center logos, and QR readability warnings.
+- Added PWA manifest, offline app-shell service worker, and update handling.
+- Added lint/unit/accessibility/mobile/visual quality-gate foundations.
 
 ### 0.2.1
 

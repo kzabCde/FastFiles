@@ -6,6 +6,7 @@
 - Fixed organizer action contrast, QR SVG logo export parity, version labels, and AVIF input messaging.
 - Added deterministic visual baselines and release-gate checks.
 - Patched transitive PostCSS security advisories without a Next major-version jump.
+- Excluded generated Playwright reports and transient test results from version control while retaining intentional visual baselines.
 
 ## 0.3.0 — 2026-09-28
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { TOOLS, type ToolDefinition } from "@/lib/tools";
 import styles from "./NavigationMenu.module.css";
 
@@ -18,13 +20,23 @@ const imageToolIds = new Set(["image-convert", "watermark"]);
 export default function NavigationMenu({ language }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
   const fileTools = TOOLS.filter((tool) => fileToolIds.has(tool.id));
   const imageTools = TOOLS.filter((tool) => imageToolIds.has(tool.id));
   const qrLabel = language === "th" ? "สร้าง QR Code" : "QR Generator";
 
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); rootRef.current?.querySelector<HTMLButtonElement>("button")?.focus(); return; }
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      const links = [...(rootRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [])];
+      if (!links.length) return;
+      event.preventDefault();
+      const current = links.indexOf(document.activeElement as HTMLAnchorElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? links.length - 1 : event.key === "ArrowDown" ? (current + 1 + links.length) % links.length : (current - 1 + links.length) % links.length;
+      links[next]?.focus();
+    };
     const onPointerDown = (event: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     };
@@ -50,7 +62,7 @@ export default function NavigationMenu({ language }: Props) {
 
       {open && (
         <div id="fastfiles-tool-menu" className={styles.dropdown} data-testid="navigation-dropdown" role="navigation" aria-label={language === "th" ? "เมนู FastFiles" : "FastFiles menu"}>
-          <div className={styles.menuHead}>
+          <div className={styles.dropdownHead}>
             <div><span>FASTFILES</span><strong>{language === "th" ? "เลือกเครื่องมือ" : "Choose a tool"}</strong></div>
             <small>{language === "th" ? "แต่ละเครื่องมือเปิดเป็นหน้าแยก" : "Each tool opens on its own page"}</small>
           </div>
@@ -60,7 +72,7 @@ export default function NavigationMenu({ language }: Props) {
               <div className={styles.groupTitle}><span className={styles.kicker}>01</span><h2>{language === "th" ? "เครื่องมือไฟล์" : "File Tools"}</h2></div>
               <div className={styles.links}>{fileTools.map((tool) => {
                 const label = language === "th" ? tool.thai : tool.label;
-                return <a key={`file-${tool.id}`} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
+                return <a key={`file-${tool.id}`} className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""} aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
               })}</div>
             </section>
 
@@ -68,19 +80,19 @@ export default function NavigationMenu({ language }: Props) {
               <div className={styles.groupTitle}><span className={styles.kicker}>02</span><h2>{language === "th" ? "เครื่องมือรูปภาพ" : "Image Tools"}</h2></div>
               <div className={styles.links}>{imageTools.map((tool) => {
                 const label = language === "th" ? tool.thai : tool.label;
-                return <a key={`image-${tool.id}`} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
+                return <a key={`image-${tool.id}`} className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""} aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
               })}</div>
             </section>
 
             <section className={styles.qrGroup}>
               <div className={styles.groupTitle}><span className={styles.kicker}>03</span><h2>QR Code</h2></div>
-              <div className={styles.links}><a data-testid="nav-qr-generator" aria-label={qrLabel} href="/qr" onClick={() => setOpen(false)}><span>{qrLabel}</span><b aria-hidden="true">↗</b></a></div>
+              <div className={styles.links}><a data-testid="nav-qr-generator" className={pathname === "/qr" ? styles.activeLink : ""} aria-current={pathname === "/qr" ? "page" : undefined} aria-label={qrLabel} href="/qr" onClick={() => setOpen(false)}><span>{qrLabel}</span><b aria-hidden="true">↗</b></a></div>
             </section>
           </div>
 
           <div className={styles.bottomLinks}>
-            <a href="/#privacy" onClick={() => setOpen(false)}>{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</a>
-            <a href="/#about" onClick={() => setOpen(false)}>{language === "th" ? "เกี่ยวกับ" : "About"}</a>
+            <Link href="/#privacy" onClick={() => setOpen(false)}>{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link>
+            <Link href="/#about" onClick={() => setOpen(false)}>{language === "th" ? "เกี่ยวกับ" : "About"}</Link>
             <span>Local-first · No account</span>
           </div>
         </div>

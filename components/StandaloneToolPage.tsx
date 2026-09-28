@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import FastFilesMark from "./FastFilesMark";
 import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
@@ -45,7 +46,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   const inputAccept = useMemo(() => {
     const values: string[] = [];
     if (acceptsPdf) values.push("application/pdf", ".pdf");
-    if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", ".jpg", ".jpeg", ".png", ".webp");
+    if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", "image/avif", ".jpg", ".jpeg", ".png", ".webp", ".avif");
     return values.join(",");
   }, [acceptsPdf, acceptsImage]);
 
@@ -93,7 +94,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   }
 
   const title = language === "th" ? tool.thai : tool.label;
-  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP";
+  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
 
   return (
     <main
@@ -111,9 +112,9 @@ export default function StandaloneToolPage({ tool }: Props) {
         <div className="header-inner">
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
             <NavigationMenu language={language} />
-            <a className="brand" href="/" aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></a>
+            <Link className="brand" href="/" aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></Link>
           </div>
-          <nav><a href="/">Home</a><a href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</a><a href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</a></nav>
+          <nav><Link href="/">Home</Link><Link href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link><Link href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</Link></nav>
           <div className="header-actions">
             <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
             <button className="chip-button" onClick={() => setLanguage((value) => value === "en" ? "th" : "en")}>{language === "en" ? "TH" : "EN"}</button>

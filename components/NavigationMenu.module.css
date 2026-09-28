@@ -21,6 +21,7 @@
 .sections section > div a { min-height: 38px; padding: 0 2px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); color: var(--text); text-align: left; font-size: 11px; }
 .sections section > div a:last-child { border-bottom: 0; }
 .sections section > div a:hover, .sections section > div a:focus-visible { color: var(--accent-ink); }
+.sections section > div a.activeLink { margin-inline:-6px; padding-inline:8px; border-radius:8px; background:var(--accent-soft); color:var(--accent-ink); font-weight:760; }
 .sections section > div a b { color: var(--muted); font-size: 12px; font-weight: 500; }
 .qrGroup { background: var(--accent-soft) !important; border-color: color-mix(in srgb, var(--accent) 40%, var(--line)) !important; }
 .qrGroup > div a { color: var(--accent-ink); font-weight: 750; }

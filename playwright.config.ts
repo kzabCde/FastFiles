@@ -17,8 +17,8 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
-    { name: "mobile-chromium", use: { ...devices["iPhone 13"] } },
-    { name: "tablet-chromium", use: { ...devices["iPad (gen 7)"] } },
+    { name: "mobile-chromium", use: { ...devices["iPhone 13"], browserName: "chromium" } },
+    { name: "tablet-chromium", use: { ...devices["iPad (gen 7)"], browserName: "chromium" } },
   ],
   webServer: {
     command: "npm run start -- --hostname 127.0.0.1",

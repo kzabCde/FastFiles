@@ -27,10 +27,20 @@ export type PdfMetadata = {
   title?: string;
   author?: string;
   subject?: string;
+  keywords?: string;
   creator?: string;
   producer?: string;
   creationDate?: string;
   modificationDate?: string;
+};
+
+export type PdfMetadataPatch = {
+  title: string;
+  author: string;
+  subject: string;
+  keywords: string[];
+  creator: string;
+  producer: string;
 };
 
 export type PdfWatermarkOptions = {
@@ -185,11 +195,23 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
     title: pdf.getTitle(),
     author: pdf.getAuthor(),
     subject: pdf.getSubject(),
+    keywords: pdf.getKeywords(),
     creator: pdf.getCreator(),
     producer: pdf.getProducer(),
     creationDate: formatDate(pdf.getCreationDate()),
     modificationDate: formatDate(pdf.getModificationDate()),
   };
+}
+
+export async function updatePdfMetadata(file: File, metadata: PdfMetadataPatch) {
+  const pdf = await loadPdf(file);
+  pdf.setTitle(metadata.title.trim());
+  pdf.setAuthor(metadata.author.trim());
+  pdf.setSubject(metadata.subject.trim());
+  pdf.setKeywords(metadata.keywords.map((keyword) => keyword.trim()).filter(Boolean));
+  pdf.setCreator(metadata.creator.trim());
+  pdf.setProducer(metadata.producer.trim());
+  return bytesToBlob(await pdf.save({ useObjectStreams: true, updateFieldAppearances: false }), "application/pdf");
 }
 
 export async function clearPdfTextMetadata(file: File) {

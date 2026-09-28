@@ -99,6 +99,19 @@ export function usableFiles(items: FileQueueItem[]) {
   return items.filter((item) => item.status !== "error").map((item) => item.file);
 }
 
+export function fileIssueMessage(code: string, language: "en" | "th") {
+  const messages: Record<string, [string, string]> = {
+    "zero-byte": ["This file is empty.", "ไฟล์นี้ไม่มีข้อมูล"],
+    unsupported: ["This file type is not supported.", "ยังไม่รองรับไฟล์ประเภทนี้"],
+    "unsupported-image": ["This image format is not supported.", "ยังไม่รองรับรูปแบบภาพนี้"],
+    "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
+    "invalid-pdf": ["The PDF appears to be corrupted or invalid.", "ไฟล์ PDF อาจเสียหายหรือรูปแบบไม่ถูกต้อง"],
+    "password-pdf": ["Password-protected PDFs are not supported yet.", "ยังไม่รองรับ PDF ที่มีรหัสผ่าน"],
+    "mime-mismatch": ["The filename and detected image type do not match. Processing may still work.", "นามสกุลไฟล์และชนิดรูปที่ตรวจพบไม่ตรงกัน แต่อาจยังประมวลผลได้"],
+  };
+  return (messages[code] ?? [code, code])[language === "th" ? 1 : 0];
+}
+
 function mimeMatchesExtension(mime: string, extension: string) {
   if (!extension) return true;
   if (mime === "image/jpeg") return extension === "jpg" || extension === "jpeg";

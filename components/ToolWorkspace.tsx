@@ -20,9 +20,11 @@ import {
   pdfToPngs,
   renderPdfThumbnails,
   splitPdfIntoPages,
+  updatePdfMetadata,
   watermarkPdf,
   type PageNumberPosition,
   type PdfMetadata,
+  type PdfMetadataPatch,
   type PdfPageState,
   type PdfWatermarkOptions,
 } from "@/lib/pdf-tools";
@@ -268,11 +270,62 @@ function PageNumbersWorkspace({ file, language, run, setResult, busy }: { file: 
 
 function MetadataWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
   const [metadata, setMetadata] = useState<PdfMetadata | null>(null);
+  const [form, setForm] = useState<PdfMetadataPatch>({ title: "", author: "", subject: "", keywords: [], creator: "", producer: "" });
   const [metadataError, setMetadataError] = useState("");
-  useEffect(() => { let active = true; getPdfMetadata(file).then((value) => { if (active) setMetadata(value); }).catch((error) => { if (active) setMetadataError(error instanceof Error ? error.message : "Unable to read metadata."); }); return () => { active = false; }; }, [file]);
+  useEffect(() => {
+    let active = true;
+    setMetadata(null);
+    setMetadataError("");
+    getPdfMetadata(file).then((value) => {
+      if (!active) return;
+      setMetadata(value);
+      setForm({
+        title: value.title ?? "",
+        author: value.author ?? "",
+        subject: value.subject ?? "",
+        keywords: (value.keywords ?? "").split(/[,;]\s*/).filter(Boolean),
+        creator: value.creator ?? "",
+        producer: value.producer ?? "",
+      });
+    }).catch((error) => {
+      if (active) setMetadataError(error instanceof Error ? error.message : "Unable to read metadata.");
+    });
+    return () => { active = false; };
+  }, [file]);
+  const updateField = (field: Exclude<keyof PdfMetadataPatch, "keywords">, value: string) => setForm((current) => ({ ...current, [field]: value }));
+  const save = () => run(language === "th" ? "กำลังบันทึก Metadata" : "SAVING METADATA", 1, async () => {
+    const blob = await updatePdfMetadata(file, form);
+    const name = `${file.name.replace(/\.pdf$/i, "")}-metadata-edited.pdf`;
+    downloadBlob(blob, name);
+    setResult(makeSingleResult(language === "th" ? "แก้ไข Metadata แล้ว" : "PDF METADATA UPDATED", file, blob, name));
+  });
   const clear = () => run("CLEARING METADATA", 1, async () => { const blob = await clearPdfTextMetadata(file); const name = `${file.name.replace(/\.pdf$/i, "")}-metadata-cleared.pdf`; downloadBlob(blob, name); setResult(makeSingleResult(language === "th" ? "ล้างข้อมูลข้อความที่รองรับแล้ว" : "SUPPORTED TEXT METADATA CLEARED", file, blob, name)); });
   const rows = metadata ? Object.entries(metadata).filter(([, value]) => value) : [];
-  return <div className="workspace-grid"><div className="metadata-panel"><span className="eyebrow">PDF METADATA</span><h2>{file.name}</h2>{metadataError ? <p>{metadataError}</p> : !metadata ? <div className="thumb-skeleton metadata-skeleton" /> : rows.length ? <dl>{rows.map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl> : <p>{language === "th" ? "ไม่พบข้อมูลข้อความในเอกสาร" : "No text metadata was found."}</p>}</div><aside className="action-card"><h2>{language === "th" ? "ความเป็นส่วนตัวของ Metadata" : "Metadata privacy"}</h2><p>{language === "th" ? "FastFiles สามารถล้าง Title, Author, Subject, Keywords, Creator และ Producer ที่ pdf-lib รองรับ วันที่สร้าง/แก้ไขอาจยังคงอยู่ จึงไม่กล่าวอ้างว่าลบ metadata ทุกชนิด" : "FastFiles clears supported text fields such as Title, Author, Subject, Keywords, Creator and Producer. Creation/modification dates may remain, so this is not presented as complete metadata removal."}</p><button className="primary-button" disabled={busy} onClick={clear}>{language === "th" ? "ล้างข้อมูลข้อความและดาวน์โหลด" : "CLEAR TEXT METADATA"} ↗</button></aside></div>;
+  return (
+    <div className="workspace-grid">
+      <div className="metadata-panel">
+        <span className="eyebrow">PDF METADATA</span>
+        <h2>{file.name}</h2>
+        {metadataError ? <p>{metadataError}</p> : !metadata ? <div className="thumb-skeleton metadata-skeleton" /> : rows.length ? (
+          <dl>{rows.map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
+        ) : <p>{language === "th" ? "ไม่พบข้อมูลข้อความในเอกสาร" : "No text metadata was found."}</p>}
+      </div>
+      <aside className="action-card">
+        <h2>{language === "th" ? "แก้ไข Metadata" : "Edit metadata"}</h2>
+        <label>{language === "th" ? "ชื่อเอกสาร" : "TITLE"}<input value={form.title} onChange={(event) => updateField("title", event.target.value)} /></label>
+        <label>{language === "th" ? "ผู้เขียน" : "AUTHOR"}<input value={form.author} onChange={(event) => updateField("author", event.target.value)} /></label>
+        <label>{language === "th" ? "หัวข้อ" : "SUBJECT"}<input value={form.subject} onChange={(event) => updateField("subject", event.target.value)} /></label>
+        <label>{language === "th" ? "คำสำคัญ คั่นด้วยจุลภาค" : "KEYWORDS, COMMA-SEPARATED"}<input value={form.keywords.join(", ")} onChange={(event) => setForm((current) => ({ ...current, keywords: event.target.value.split(/[,;]\s*/) }))} /></label>
+        <div className="field-pair">
+          <label>{language === "th" ? "โปรแกรมผู้สร้าง" : "CREATOR"}<input value={form.creator} onChange={(event) => updateField("creator", event.target.value)} /></label>
+          <label>{language === "th" ? "โปรแกรมผลิต PDF" : "PRODUCER"}<input value={form.producer} onChange={(event) => updateField("producer", event.target.value)} /></label>
+        </div>
+        <p>{language === "th" ? "วันที่สร้าง/แก้ไขและ metadata ระดับล่างบางชนิดอาจยังคงอยู่" : "Creation dates and some low-level metadata may remain unchanged."}</p>
+        <button className="primary-button" disabled={busy || !metadata} onClick={save}>{language === "th" ? "บันทึก Metadata" : "SAVE METADATA"} ↗</button>
+        <button className="secondary-button" disabled={busy || !metadata} onClick={clear}>{language === "th" ? "ล้างข้อมูลข้อความ" : "CLEAR TEXT METADATA"}</button>
+      </aside>
+    </div>
+  );
 }
 
 function ImagesToPdfWorkspace({ files, language, run, update, setResult, busy }: { files: File[]; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {

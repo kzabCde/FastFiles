@@ -194,15 +194,30 @@ test("PDF page numbers generate a valid PDF", async ({ page }) => {
   await expect(page.getByTestId("result-center")).toBeVisible();
 });
 
-test("PDF metadata workspace opens and can clear supported text metadata", async ({ page }) => {
+test("PDF metadata workspace can edit and clear supported text metadata", async ({ page }) => {
   const pdf = await PDFDocument.create();
   pdf.setTitle("Private title");
   pdf.setAuthor("FastFiles Test");
   pdf.addPage();
   await page.goto("/");
   await upload(page, [{ name: "metadata.pdf", mimeType: "application/pdf", buffer: Buffer.from(await pdf.save()) }]);
+  await expect(page.getByText("metadata.pdf", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /PDF Metadata/i }).first().click();
   await expect(page.getByText("Private title")).toBeVisible();
+
+  await page.getByLabel("TITLE").fill("Public title");
+  await page.getByLabel("AUTHOR").fill("Updated Author");
+  await page.getByLabel("KEYWORDS, COMMA-SEPARATED").fill("fastfiles, local, pdf");
+  const editDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /SAVE METADATA/i }).click();
+  const editedDownload = await editDownloadPromise;
+  const editedPath = await editedDownload.path();
+  const edited = await PDFDocument.load(await fs.readFile(editedPath!));
+  expect(edited.getTitle()).toBe("Public title");
+  expect(edited.getAuthor()).toBe("Updated Author");
+  expect(edited.getKeywords()).toContain("fastfiles");
+
+  await page.getByRole("button", { name: /Change settings/i }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /CLEAR TEXT METADATA/i }).click();
   const download = await downloadPromise;

@@ -52,6 +52,7 @@ async function assertKeyTextNotClipped(page: Page) {
 
 test("landing page renders cleanly in English and Thai", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText("FastFiles v0.3.0", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByText(/Processed locally|files stay on your device/i).first()).toBeVisible();
   await assertNoHorizontalOverflow(page);

@@ -7,6 +7,7 @@ import NavigationMenu from "./NavigationMenu";
 import QRGenerator from "./QRGenerator";
 import { TOOLS, groupKind, searchTools, toolsFor, type ToolDefinition } from "@/lib/tools";
 import { formatBytes } from "@/lib/download";
+import { APP_VERSION } from "@/lib/app-info";
 import { inspectFiles, isLargeWorkload, summarizeQueue, usableFiles, type FileQueueItem } from "@/lib/file-intake";
 
 type Language = "en" | "th";
@@ -213,7 +214,7 @@ export default function FastFilesApp() {
       <section className="hero-section">
         <div className="hero-wrap">
           <div className="hero-copy">
-            <div className="product-pill"><span className="live-dot" /> FastFiles v0.2.1</div>
+            <div className="product-pill"><span className="live-dot" /> FastFiles v{APP_VERSION}</div>
             <h1>{t.hero}</h1>
             <p className="hero-body">{t.body}</p>
             <div className="trust-row">
@@ -272,7 +273,7 @@ export default function FastFilesApp() {
         <div className="privacy-card"><div className="privacy-icon"><ShieldIcon /></div><div><span className="section-kicker">Local-first</span><h2>{language === "th" ? "ไฟล์และข้อมูลของคุณยังเป็นของคุณ" : "Your files and data stay yours."}</h2></div><div className="privacy-copy"><p>{language === "th" ? "เครื่องมือหลักของ FastFiles รวมถึง QR Generator ทำงานในเบราว์เซอร์ ไฟล์ต้นฉบับและข้อมูล QR ไม่ถูกเก็บถาวร และไม่มีบัญชีผู้ใช้" : "Core FastFiles tools, including QR generation, run in your browser. Original files and QR content are not permanently stored and no account is required."}</p><div className="privacy-points"><span>Local processing</span><span>No account</span><span>No permanent file storage</span></div></div></div>
       </section>
 
-      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>PDF + Image + QR tools designed for reliable everyday work.</p><span>v0.2.1</span></section>
+      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>PDF + Image + QR tools designed for reliable everyday work.</p><span>v{APP_VERSION}</span></section>
       <footer className="section-shell"><span>© 2026 FastFiles</span><span>Private by design</span><span>Built for the browser</span></footer>
       {dragging && <div className="drag-overlay"><span className="drop-plus">+</span><strong>{language === "th" ? "วางไฟล์ได้ทุกที่" : "Drop files anywhere"}</strong><span>PDF · JPG · PNG · WEBP</span></div>}
     </main>

@@ -99,7 +99,7 @@ The QR workspace supports Thai/English UI, Light/Dark/System themes and responsi
 - Organize PDF with progressive thumbnails, drag reorder, multi-select, rotate, delete, duplicate, extract, Select All, Undo/Redo and organizer-scoped keyboard shortcuts
 - Split PDF / extract page ranges
 - Add configurable page numbers
-- PDF metadata viewer and supported text-metadata clearing
+- PDF metadata viewer, editor and supported text-metadata clearing
 - Images → PDF
 - PDF → PNG (ZIP export)
 - PDF watermarking
@@ -227,7 +227,7 @@ npm run test:e2e
 - Added File Intake V2 and resilient local validation.
 - Added smart selection-aware tool suggestions.
 - Added Result Center and partial batch recovery.
-- Added PDF page numbering and metadata inspection/clearing.
+- Added PDF page numbering and metadata inspection/editing/clearing.
 - Expanded PDF organizer controls and keyboard support.
 - Added a live Canvas image editor with crop presets/repositioning, rotate and flip.
 - Added image resize presets, optional aspect-ratio unlock, runtime-gated AVIF and batch cancellation/retry.

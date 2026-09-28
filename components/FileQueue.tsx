@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { formatBytes } from "@/lib/download";
-import type { FileQueueItem, QueueSummary } from "@/lib/file-intake";
+import { fileIssueMessage, type FileQueueItem, type QueueSummary } from "@/lib/file-intake";
 
 export default function FileQueue({
   items,
@@ -88,7 +88,7 @@ export default function FileQueue({
             <div className="queue-file-copy">
               <strong title={item.file.name}>{item.file.name}</strong>
               <span>{formatBytes(item.file.size)}{item.pageCount ? ` · ${item.pageCount} ${language === "th" ? "หน้า" : "pages"}` : ""}{item.width && item.height ? ` · ${item.width}×${item.height}` : ""}</span>
-              {item.message && <small>{messageFor(item.message, language)}</small>}
+              {item.message && <small>{fileIssueMessage(item.message, language)}</small>}
             </div>
             <span className={`queue-status ${item.status}`}>{item.status === "checking" ? t.checking : item.status === "error" ? t.error : item.status === "warning" ? t.warning : t.ready}</span>
             <button className="remove-file" onClick={() => onRemove(item.id)} aria-label={`${t.remove}: ${item.file.name}`}>×</button>
@@ -97,17 +97,4 @@ export default function FileQueue({
       </div>
     </div>
   );
-}
-
-function messageFor(code: string, language: "en" | "th") {
-  const messages: Record<string, [string, string]> = {
-    "zero-byte": ["This file is empty.", "ไฟล์นี้ไม่มีข้อมูล"],
-    unsupported: ["This file type is not supported.", "ยังไม่รองรับไฟล์ประเภทนี้"],
-    "unsupported-image": ["This image format is not supported in v0.2.", "เวอร์ชันนี้ยังไม่รองรับรูปแบบภาพนี้"],
-    "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
-    "invalid-pdf": ["The PDF appears to be corrupted or invalid.", "ไฟล์ PDF อาจเสียหายหรือรูปแบบไม่ถูกต้อง"],
-    "password-pdf": ["Password-protected PDFs are not supported yet.", "ยังไม่รองรับ PDF ที่มีรหัสผ่าน"],
-    "mime-mismatch": ["The filename and detected image type do not match. Processing may still work.", "นามสกุลไฟล์และชนิดรูปที่ตรวจพบไม่ตรงกัน แต่อาจยังประมวลผลได้"],
-  };
-  return (messages[code] ?? [code, code])[language === "th" ? 1 : 0];
 }

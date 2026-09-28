@@ -6,6 +6,7 @@ import FastFilesMark from "./FastFilesMark";
 import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
 import { kindOf, type ToolDefinition } from "@/lib/tools";
+import { fileIssueMessage, inspectFiles } from "@/lib/file-intake";
 
 type Language = "en" | "th";
 type Theme = "system" | "light" | "dark";
@@ -19,6 +20,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   const inputAccept = useMemo(() => {
     const values: string[] = [];
     if (acceptsPdf) values.push("application/pdf", ".pdf");
-    if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", "image/avif", ".jpg", ".jpeg", ".png", ".webp", ".avif");
+    if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", ".jpg", ".jpeg", ".png", ".webp");
     return values.join(",");
   }, [acceptsPdf, acceptsImage]);
 
@@ -56,7 +58,7 @@ export default function StandaloneToolPage({ tool }: Props) {
     inputRef.current?.click();
   };
 
-  const acceptFiles = (incoming: File[]) => {
+  const acceptFiles = async (incoming: File[]) => {
     setError("");
     const matching = incoming.filter((file) => {
       const kind = kindOf(file);
@@ -70,14 +72,29 @@ export default function StandaloneToolPage({ tool }: Props) {
 
     const firstKind = kindOf(matching[0]);
     const sameKind = matching.filter((file) => kindOf(file) === firstKind);
-    const next = tool.multiple ? sameKind : [sameKind[0]];
+    const candidates = tool.multiple ? sameKind : [sameKind[0]];
+    setChecking(true);
 
-    if (tool.id === "merge-pdf" && next.length < 2) {
-      setError(language === "th" ? "เลือก PDF อย่างน้อย 2 ไฟล์เพื่อรวมไฟล์" : "Select at least two PDFs to merge.");
-      return;
+    try {
+      const inspected = await inspectFiles(candidates);
+      const rejected = inspected.find((item) => item.status === "error");
+      if (rejected) {
+        const reason = fileIssueMessage(rejected.message ?? "unsupported", language);
+        setError(`${rejected.file.name}: ${reason}`);
+        return;
+      }
+
+      const next = inspected.map((item) => item.file);
+
+      if (tool.id === "merge-pdf" && next.length < 2) {
+        setError(language === "th" ? "เลือก PDF อย่างน้อย 2 ไฟล์เพื่อรวมไฟล์" : "Select at least two PDFs to merge.");
+        return;
+      }
+
+      setFiles(next);
+    } finally {
+      setChecking(false);
     }
-
-    setFiles(next);
   };
 
   if (files.length) {
@@ -94,7 +111,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   }
 
   const title = language === "th" ? tool.thai : tool.label;
-  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
+  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP";
 
   return (
     <main
@@ -105,7 +122,7 @@ export default function StandaloneToolPage({ tool }: Props) {
       onDrop={(event) => {
         event.preventDefault();
         setDragging(false);
-        acceptFiles([...event.dataTransfer.files]);
+        void acceptFiles([...event.dataTransfer.files]);
       }}
     >
       <header className="site-header">
@@ -118,12 +135,12 @@ export default function StandaloneToolPage({ tool }: Props) {
           <div className="header-actions">
             <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
             <button className="chip-button" onClick={() => setLanguage((value) => value === "en" ? "th" : "en")}>{language === "en" ? "TH" : "EN"}</button>
-            <button className="top-drop-button" onClick={openPicker}>{language === "th" ? "เลือกไฟล์" : "Choose files"}<span>+</span></button>
+            <button className="top-drop-button" onClick={openPicker} disabled={checking}>{language === "th" ? "เลือกไฟล์" : "Choose files"}<span>+</span></button>
           </div>
         </div>
       </header>
 
-      <input ref={inputRef} hidden multiple={Boolean(tool.multiple)} type="file" accept={inputAccept} onChange={(event) => acceptFiles([...(event.target.files ?? [])])} />
+      <input ref={inputRef} hidden multiple={Boolean(tool.multiple)} type="file" accept={inputAccept} onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
 
       <section className="hero-section">
         <div className="hero-wrap">
@@ -137,12 +154,12 @@ export default function StandaloneToolPage({ tool }: Props) {
             </div>
           </div>
 
-          <button className="drop-surface" onClick={openPicker} data-testid="standalone-tool-dropzone">
+          <button className="drop-surface" onClick={openPicker} data-testid="standalone-tool-dropzone" disabled={checking}>
             <div className="drop-glow" aria-hidden="true" />
             <div className="drop-content">
               <span className="drop-plus">+</span>
-              <strong>{language === "th" ? "วางไฟล์ที่นี่" : "Drop files here"}</strong>
-              <span>{language === "th" ? "หรือคลิกเพื่อเลือกไฟล์" : "or click to browse"}</span>
+              <strong>{checking ? (language === "th" ? "กำลังตรวจไฟล์…" : "Checking file…") : (language === "th" ? "วางไฟล์ที่นี่" : "Drop files here")}</strong>
+              <span>{checking ? (language === "th" ? "FastFiles กำลังตรวจสอบว่าไฟล์ใช้งานได้" : "FastFiles is validating the selected file") : (language === "th" ? "หรือคลิกเพื่อเลือกไฟล์" : "or click to browse")}</span>
               <div className="format-pills">{fileHint.split(" · ").map((format) => <small key={format}>{format}</small>)}</div>
               <span className="browse-link">{language === "th" ? "เลือกไฟล์" : "Browse files"} <b>→</b></span>
             </div>

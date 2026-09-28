@@ -16,6 +16,9 @@
 - PDF Organizer now supports click, Ctrl/Cmd, and Shift selection with a dedicated drag handle and visible insertion state.
 - Navigation indicates the current tool and supports Escape, Arrow, Home, and End keyboard behavior.
 - Playwright starts Next.js on an explicit loopback hostname for consistent local and CI behavior.
+- PDF Metadata can edit Title, Author, Subject, Keywords, Creator, and Producer before exporting a new file.
+- Dedicated tool routes now perform the same file integrity checks as the homepage before opening a workspace.
+- The visible application version is read from package metadata instead of duplicated UI strings.
 
 ### Security and privacy
 

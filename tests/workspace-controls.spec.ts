@@ -12,16 +12,16 @@ test("language can switch after entering an image workspace", async ({ page }) =
     mimeType: "image/png",
     buffer: png,
   });
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
 
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Image Converter");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Image Editor");
   await page.getByRole("button", { name: "Switch to Thai" }).click();
 
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("แปลงไฟล์รูป");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("แก้ไขรูปภาพ");
   await expect(page.getByText("การตั้งค่า", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Switch to English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Image Converter");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Image Editor");
 });

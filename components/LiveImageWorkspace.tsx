@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { downloadBlob, downloadZip, formatBytes } from "@/lib/download";
 import {
+  drawTextWatermark,
   getAspectCropRect,
   processImagesSettled,
   supportsImageFormat,
   type ImageFormat,
   type ImageProcessOptions,
+  type WatermarkPosition,
 } from "@/lib/image-tools";
 import type { WorkspaceResult } from "./ResultCenter";
 
@@ -34,6 +36,18 @@ const cropRatios: Record<Exclude<CropPreset, "original">, number> = {
   "16:9": 16 / 9,
   "9:16": 9 / 16,
 };
+
+const watermarkPositions: Array<{ value: WatermarkPosition; en: string; th: string; mark: string }> = [
+  { value: "top-left", en: "Top left", th: "ซ้ายบน", mark: "↖" },
+  { value: "top-center", en: "Top center", th: "กลางบน", mark: "↑" },
+  { value: "top-right", en: "Top right", th: "ขวาบน", mark: "↗" },
+  { value: "center-left", en: "Center left", th: "ซ้ายกลาง", mark: "←" },
+  { value: "center", en: "Center", th: "กึ่งกลาง", mark: "•" },
+  { value: "center-right", en: "Center right", th: "ขวากลาง", mark: "→" },
+  { value: "bottom-left", en: "Bottom left", th: "ซ้ายล่าง", mark: "↙" },
+  { value: "bottom-center", en: "Bottom center", th: "กลางล่าง", mark: "↓" },
+  { value: "bottom-right", en: "Bottom right", th: "ขวาล่าง", mark: "↘" },
+];
 
 function usePreviewUrls(files: File[]) {
   const [urls, setUrls] = useState<string[]>([]);
@@ -73,12 +87,20 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function formatForFile(file?: File): ImageFormat {
+  if (file?.type === "image/jpeg") return "image/jpeg";
+  if (file?.type === "image/png") return "image/png";
+  if (file?.type === "image/avif") return "image/avif";
+  return "image/webp";
+}
+
 export default function LiveImageWorkspace({ files, language, toolId, run, update, setResult, busy }: Props) {
   const images = files.filter((file) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|avif)$/i.test(file.name));
+  const watermarkMode = toolId === "watermark";
   const urls = usePreviewUrls(images);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [format, setFormat] = useState<ImageFormat>("image/webp");
-  const [quality, setQuality] = useState(toolId === "image-compress" ? 0.74 : 0.86);
+  const [format, setFormat] = useState<ImageFormat>(() => watermarkMode ? formatForFile(images[0]) : "image/webp");
+  const [quality, setQuality] = useState(watermarkMode ? 0.95 : toolId === "image-compress" ? 0.74 : 0.86);
   const [maxWidth, setMaxWidth] = useState(toolId === "image-resize" ? 1920 : 0);
   const [maxHeight, setMaxHeight] = useState(0);
   const [scalePercent, setScalePercent] = useState(100);
@@ -86,8 +108,13 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
   const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
   const [flipX, setFlipX] = useState(false);
   const [flipY, setFlipY] = useState(false);
-  const [watermark, setWatermark] = useState(toolId === "watermark" ? "FastFiles" : "");
-  const [watermarkOpacity, setWatermarkOpacity] = useState(38);
+  const [watermark, setWatermark] = useState(watermarkMode ? "FastFiles" : "");
+  const [watermarkOpacity, setWatermarkOpacity] = useState(42);
+  const [watermarkColor, setWatermarkColor] = useState("#ffffff");
+  const [watermarkSize, setWatermarkSize] = useState(7);
+  const [watermarkMargin, setWatermarkMargin] = useState(4);
+  const [watermarkPosition, setWatermarkPosition] = useState<WatermarkPosition>("bottom-right");
+  const [watermarkShadow, setWatermarkShadow] = useState(true);
   const [cropPreset, setCropPreset] = useState<CropPreset>("original");
   const [cropCenter, setCropCenter] = useState({ x: 0.5, y: 0.5 });
   const [avifSupported, setAvifSupported] = useState(false);
@@ -100,7 +127,7 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
   const abortRef = useRef<AbortController | null>(null);
 
   const selectedFile = images[Math.min(selectedIndex, Math.max(0, images.length - 1))];
-  const cropAspect = cropPreset === "original" ? undefined : cropRatios[cropPreset];
+  const cropAspect = watermarkMode || cropPreset === "original" ? undefined : cropRatios[cropPreset];
   const swapped = rotation === 90 || rotation === 270;
   const transformedSize = {
     width: swapped ? previewSize.height : previewSize.width,
@@ -170,38 +197,37 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
     context.drawImage(source, -previewSize.width / 2, -previewSize.height / 2, previewSize.width, previewSize.height);
     context.restore();
 
-    if (watermark.trim()) {
-      context.save();
-      const scaledCrop = {
-        x: cropRect.x * previewScale,
-        y: cropRect.y * previewScale,
-        width: cropRect.width * previewScale,
-        height: cropRect.height * previewScale,
-      };
-      const fontSize = Math.max(14, Math.round(Math.min(scaledCrop.width, scaledCrop.height) * 0.055));
-      context.font = `700 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
-      context.textAlign = "right";
-      context.textBaseline = "bottom";
-      context.fillStyle = `rgba(20, 20, 16, ${watermarkOpacity / 100})`;
-      context.fillText(watermark.trim(), scaledCrop.x + scaledCrop.width - fontSize * 0.65, scaledCrop.y + scaledCrop.height - fontSize * 0.55);
-      context.restore();
+    if (watermarkMode && watermark.trim()) {
+      drawTextWatermark(context, canvas.width, canvas.height, watermark, {
+        watermarkOpacity: watermarkOpacity / 100,
+        watermarkColor,
+        watermarkSize: watermarkSize / 100,
+        watermarkMargin: watermarkMargin / 100,
+        watermarkPosition,
+        watermarkShadow,
+      });
     }
-  }, [previewSize, transformedSize.width, transformedSize.height, rotation, flipX, flipY, watermark, watermarkOpacity, cropRect]);
+  }, [previewSize, transformedSize.width, transformedSize.height, rotation, flipX, flipY, watermarkMode, watermark, watermarkOpacity, watermarkColor, watermarkSize, watermarkMargin, watermarkPosition, watermarkShadow]);
 
   const options: ImageProcessOptions = {
     format,
     quality,
-    maxWidth: maxWidth || undefined,
-    maxHeight: maxHeight || undefined,
-    scalePercent,
+    maxWidth: watermarkMode ? undefined : maxWidth || undefined,
+    maxHeight: watermarkMode ? undefined : maxHeight || undefined,
+    scalePercent: watermarkMode ? 100 : scalePercent,
     cropAspect,
     cropCenterX: cropCenter.x,
     cropCenterY: cropCenter.y,
-    rotation,
-    flipX,
-    flipY,
-    watermark: watermark || undefined,
+    rotation: watermarkMode ? 0 : rotation,
+    flipX: watermarkMode ? false : flipX,
+    flipY: watermarkMode ? false : flipY,
+    watermark: watermarkMode ? watermark || undefined : undefined,
     watermarkOpacity: watermarkOpacity / 100,
+    watermarkColor,
+    watermarkSize: watermarkSize / 100,
+    watermarkMargin: watermarkMargin / 100,
+    watermarkPosition,
+    watermarkShadow,
     preserveAspect,
   };
 
@@ -220,7 +246,7 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
       const failed = settled.failures.map((item) => ({ name: item.file.name, reason: item.error }));
 
       if (entries.length === 1 && !failed.length) downloadBlob(entries[0].blob, entries[0].name);
-      else if (entries.length) await downloadZip(entries.map(({ name, blob }) => ({ name, blob })), "fastfiles-images.zip");
+      else if (entries.length) await downloadZip(entries.map(({ name, blob }) => ({ name, blob })), watermarkMode ? "fastfiles-watermarked-images.zip" : "fastfiles-images.zip");
 
       const retryFiles = settled.failures.map((item) => item.file);
       setResult({
@@ -256,8 +282,15 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
     setFlipY(false);
     setCropPreset("original");
     setCropCenter({ x: 0.5, y: 0.5 });
-    setWatermark(toolId === "watermark" ? "FastFiles" : "");
-    setWatermarkOpacity(38);
+    setWatermark(watermarkMode ? "FastFiles" : "");
+    setWatermarkOpacity(42);
+    setWatermarkColor("#ffffff");
+    setWatermarkSize(7);
+    setWatermarkMargin(4);
+    setWatermarkPosition("bottom-right");
+    setWatermarkShadow(true);
+    setQuality(watermarkMode ? 0.95 : 0.86);
+    if (watermarkMode) setFormat(formatForFile(selectedFile));
   };
 
   const moveCrop = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -284,25 +317,34 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
 
   const totalSize = images.reduce((sum, file) => sum + file.size, 0);
   const cropArea = transformedSize.width && transformedSize.height ? (cropRect.width * cropRect.height) / (transformedSize.width * transformedSize.height) : 1;
-  const estimated = Math.round(totalSize * quality * (scalePercent / 100) * cropArea * (maxWidth ? 0.72 : 1));
-  const outputWidth = Math.max(1, Math.round(cropRect.width * Math.min(1, (scalePercent || 100) / 100, maxWidth ? maxWidth / Math.max(1, cropRect.width) : 1, maxHeight ? maxHeight / Math.max(1, cropRect.height) : 1)));
-  const outputHeight = preserveAspect
-    ? Math.max(1, Math.round(outputWidth * (cropRect.height / Math.max(1, cropRect.width))))
-    : Math.max(1, maxHeight || Math.round(cropRect.height));
+  const estimated = Math.round(totalSize * quality * (watermarkMode ? 1 : scalePercent / 100) * cropArea * (!watermarkMode && maxWidth ? 0.72 : 1));
+  const outputWidth = watermarkMode ? transformedSize.width : Math.max(1, Math.round(cropRect.width * Math.min(1, (scalePercent || 100) / 100, maxWidth ? maxWidth / Math.max(1, cropRect.width) : 1, maxHeight ? maxHeight / Math.max(1, cropRect.height) : 1)));
+  const outputHeight = watermarkMode
+    ? transformedSize.height
+    : preserveAspect
+      ? Math.max(1, Math.round(outputWidth * (cropRect.height / Math.max(1, cropRect.width))))
+      : Math.max(1, maxHeight || Math.round(cropRect.height));
 
   return (
-    <div className="image-workspace live-image-workspace" data-testid="live-image-editor">
+    <div className={`image-workspace live-image-workspace ${watermarkMode ? "watermark-workspace" : "image-editor-workspace"}`} data-testid={watermarkMode ? "watermark-image-editor" : "live-image-editor"}>
       <div className="image-preview-column live-preview-column">
         <div className="live-editor-topline">
-          <div><span className="eyebrow">{language === "th" ? "ตัวอย่างแบบเรียลไทม์" : "LIVE EDIT"}</span><strong>{selectedFile?.name ?? "—"}</strong></div>
+          <div><span className="eyebrow">{watermarkMode ? (language === "th" ? "ตัวอย่างลายน้ำแบบเรียลไทม์" : "LIVE WATERMARK") : (language === "th" ? "ตัวอย่างแบบเรียลไทม์" : "LIVE EDIT")}</span><strong>{selectedFile?.name ?? "—"}</strong></div>
           <div className="live-editor-meta"><span>{previewSize.width || "—"} × {previewSize.height || "—"}</span><span>→</span><strong>{previewSize.width ? `${outputWidth} × ${outputHeight}` : "—"}</strong></div>
         </div>
 
-        <div className="live-preview-stage" data-testid="live-image-preview" data-preview-rotation={rotation}>
+        <div
+          className="live-preview-stage"
+          data-testid="live-image-preview"
+          data-preview-rotation={rotation}
+          data-watermark-position={watermarkMode ? watermarkPosition : undefined}
+          data-watermark-color={watermarkMode ? watermarkColor : undefined}
+          data-watermark-text={watermarkMode ? watermark : undefined}
+        >
           {previewError ? <div className="live-preview-error">{previewError}</div> : !previewSize.width ? <div className="thumb-skeleton live-preview-loading" /> : (
             <div className="live-canvas-wrap">
-              <canvas ref={canvasRef} aria-label={language === "th" ? "ตัวอย่างรูปที่กำลังแก้ไข" : "Live edited image preview"} />
-              {cropAspect && transformedSize.width > 0 && transformedSize.height > 0 && (
+              <canvas ref={canvasRef} aria-label={watermarkMode ? (language === "th" ? "ตัวอย่างลายน้ำบนรูป" : "Live image watermark preview") : (language === "th" ? "ตัวอย่างรูปที่กำลังแก้ไข" : "Live edited image preview")} />
+              {!watermarkMode && cropAspect && transformedSize.width > 0 && transformedSize.height > 0 && (
                 <div
                   className="crop-overlay"
                   data-testid="crop-overlay"
@@ -329,7 +371,8 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
 
         <div className="live-preview-footer">
           <span>{language === "th" ? "Preview ใช้ภาพย่อเพื่อความลื่น · Export ใช้ไฟล์ต้นฉบับเต็มความละเอียด" : "Preview is lightweight · Export uses the full-resolution source"}</span>
-          {cropAspect && <strong>{cropPreset} · {language === "th" ? "ลากกรอบเพื่อจัดตำแหน่ง" : "DRAG CROP TO REPOSITION"}</strong>}
+          {!watermarkMode && cropAspect && <strong>{cropPreset} · {language === "th" ? "ลากกรอบเพื่อจัดตำแหน่ง" : "DRAG CROP TO REPOSITION"}</strong>}
+          {watermarkMode && <strong>{language === "th" ? "การตั้งค่าลายน้ำจะใช้กับทุกภาพที่เลือก" : "WATERMARK SETTINGS APPLY TO ALL SELECTED IMAGES"}</strong>}
         </div>
 
         {images.length > 1 && <div className="image-filmstrip" aria-label={language === "th" ? "เลือกรูปตัวอย่าง" : "Choose preview image"}>{images.slice(0, 24).map((file, index) => (
@@ -340,21 +383,29 @@ export default function LiveImageWorkspace({ files, language, toolId, run, updat
       </div>
 
       <aside className="control-panel live-control-panel">
-        <div className="control-head"><span>{language === "th" ? "การตั้งค่า" : "SETTINGS"}</span><button className="control-reset" type="button" onClick={resetEdits} disabled={busy}>{language === "th" ? "รีเซ็ต" : "RESET"}</button></div>
+        <div className="control-head"><span>{watermarkMode ? (language === "th" ? "ตั้งค่าลายน้ำ" : "WATERMARK SETTINGS") : (language === "th" ? "การตั้งค่า" : "SETTINGS")}</span><button className="control-reset" type="button" onClick={resetEdits} disabled={busy}>{language === "th" ? "รีเซ็ต" : "RESET"}</button></div>
 
-        <div className="control-section"><span className="control-section-title">{language === "th" ? "ตัดภาพ" : "CROP"}</span><div className="crop-preset-row">{(["original", "1:1", "4:3", "3:4", "16:9", "9:16"] as CropPreset[]).map((preset) => <button type="button" className={cropPreset === preset ? "active" : ""} key={preset} onClick={() => { setCropPreset(preset); setCropCenter({ x: 0.5, y: 0.5 }); }}>{preset === "original" ? (language === "th" ? "เต็มภาพ" : "Original") : preset}</button>)}</div></div>
+        {!watermarkMode && <>
+          <div className="control-section"><span className="control-section-title">{language === "th" ? "ตัดภาพ" : "CROP"}</span><div className="crop-preset-row">{(["original", "1:1", "4:3", "3:4", "16:9", "9:16"] as CropPreset[]).map((preset) => <button type="button" className={cropPreset === preset ? "active" : ""} key={preset} onClick={() => { setCropPreset(preset); setCropCenter({ x: 0.5, y: 0.5 }); }}>{preset === "original" ? (language === "th" ? "เต็มภาพ" : "Original") : preset}</button>)}</div></div>
 
-        <div className="control-section"><span className="control-section-title">{language === "th" ? "ขนาด" : "SIZE"}</span><div className="preset-row"><button onClick={() => applyPreset("original")}>Original</button><button onClick={() => applyPreset("50")}>50%</button><button onClick={() => applyPreset("25")}>25%</button><button onClick={() => applyPreset("1080")}>1080px</button><button onClick={() => applyPreset("1920")}>1920px</button></div><div className="field-pair"><label>{language === "th" ? "กว้างสูงสุด" : "MAX WIDTH"}<input type="number" min="0" value={maxWidth || ""} placeholder="Original" onChange={(event) => setMaxWidth(Math.max(0, Number(event.target.value)))} /></label><label>{language === "th" ? "สูงสูงสุด" : "MAX HEIGHT"}<input type="number" min="0" value={maxHeight || ""} placeholder="Original" onChange={(event) => setMaxHeight(Math.max(0, Number(event.target.value)))} /></label></div><label className="check-label"><input type="checkbox" checked={preserveAspect} onChange={(event) => setPreserveAspect(event.target.checked)} /> {language === "th" ? "รักษาอัตราส่วนภาพ" : "Preserve aspect ratio"}</label></div>
+          <div className="control-section"><span className="control-section-title">{language === "th" ? "ขนาด" : "SIZE"}</span><div className="preset-row"><button onClick={() => applyPreset("original")}>Original</button><button onClick={() => applyPreset("50")}>50%</button><button onClick={() => applyPreset("25")}>25%</button><button onClick={() => applyPreset("1080")}>1080px</button><button onClick={() => applyPreset("1920")}>1920px</button></div><div className="field-pair"><label>{language === "th" ? "กว้างสูงสุด" : "MAX WIDTH"}<input type="number" min="0" value={maxWidth || ""} placeholder="Original" onChange={(event) => setMaxWidth(Math.max(0, Number(event.target.value)))} /></label><label>{language === "th" ? "สูงสูงสุด" : "MAX HEIGHT"}<input type="number" min="0" value={maxHeight || ""} placeholder="Original" onChange={(event) => setMaxHeight(Math.max(0, Number(event.target.value)))} /></label></div><label className="check-label"><input type="checkbox" checked={preserveAspect} onChange={(event) => setPreserveAspect(event.target.checked)} /> {language === "th" ? "รักษาอัตราส่วนภาพ" : "Preserve aspect ratio"}</label></div>
 
-        <div className="control-section"><span className="control-section-title">{language === "th" ? "หมุนและกลับด้าน" : "TRANSFORM"}</span><div className="toggle-grid live-toggle-grid"><button type="button" className={flipX ? "active" : ""} onClick={() => setFlipX((value) => !value)}>FLIP X</button><button type="button" className={flipY ? "active" : ""} onClick={() => setFlipY((value) => !value)}>FLIP Y</button><button type="button" data-testid="rotate-image" onClick={() => setRotation((value) => ((value + 90) % 360) as 0 | 90 | 180 | 270)}>ROTATE {rotation}°</button></div></div>
+          <div className="control-section"><span className="control-section-title">{language === "th" ? "หมุนและกลับด้าน" : "TRANSFORM"}</span><div className="toggle-grid live-toggle-grid"><button type="button" className={flipX ? "active" : ""} onClick={() => setFlipX((value) => !value)}>FLIP X</button><button type="button" className={flipY ? "active" : ""} onClick={() => setFlipY((value) => !value)}>FLIP Y</button><button type="button" data-testid="rotate-image" onClick={() => setRotation((value) => ((value + 90) % 360) as 0 | 90 | 180 | 270)}>ROTATE {rotation}°</button></div></div>
+        </>}
 
-        <div className="control-section"><span className="control-section-title">{language === "th" ? "ส่งออก" : "OUTPUT"}</span><label>{language === "th" ? "รูปแบบ" : "FORMAT"}<select value={format} onChange={(event) => setFormat(event.target.value as ImageFormat)}><option value="image/webp">WEBP</option><option value="image/jpeg">JPG</option><option value="image/png">PNG</option>{avifSupported && <option value="image/avif">AVIF</option>}</select></label><label>{language === "th" ? "คุณภาพ" : "QUALITY"} · {Math.round(quality * 100)}%<input type="range" min="35" max="100" value={Math.round(quality * 100)} onChange={(event) => setQuality(Number(event.target.value) / 100)} /></label></div>
+        {watermarkMode && <>
+          <div className="control-section"><span className="control-section-title">{language === "th" ? "ข้อความลายน้ำ" : "WATERMARK TEXT"}</span><label>{language === "th" ? "ข้อความ" : "TEXT"}<input aria-label={language === "th" ? "ข้อความลายน้ำ" : "Watermark text"} value={watermark} onChange={(event) => setWatermark(event.target.value)} placeholder={language === "th" ? "พิมพ์ข้อความลายน้ำ" : "Type watermark text"} /></label></div>
 
-        <div className="control-section"><span className="control-section-title">{language === "th" ? "ลายน้ำ" : "WATERMARK"}</span><label>{language === "th" ? "ข้อความ" : "TEXT"}<input value={watermark} onChange={(event) => setWatermark(event.target.value)} placeholder={language === "th" ? "ไม่บังคับ" : "Optional"} /></label><label>{language === "th" ? "ความทึบ" : "OPACITY"} · {watermarkOpacity}%<input type="range" min="8" max="80" value={watermarkOpacity} onChange={(event) => setWatermarkOpacity(Number(event.target.value))} /></label></div>
+          <div className="control-section"><span className="control-section-title">{language === "th" ? "ตำแหน่ง" : "POSITION"}</span><div className="toggle-grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>{watermarkPositions.map((position) => <button type="button" key={position.value} className={watermarkPosition === position.value ? "active" : ""} aria-label={language === "th" ? position.th : position.en} onClick={() => setWatermarkPosition(position.value)}><span aria-hidden="true">{position.mark}</span></button>)}</div></div>
+
+          <div className="control-section"><span className="control-section-title">{language === "th" ? "รูปแบบ" : "STYLE"}</span><label>{language === "th" ? "ขนาด" : "SIZE"} · {watermarkSize}%<input aria-label={language === "th" ? "ขนาดลายน้ำ" : "Watermark size"} type="range" min="2" max="20" value={watermarkSize} onChange={(event) => setWatermarkSize(Number(event.target.value))} /></label><label>{language === "th" ? "ความทึบ" : "OPACITY"} · {watermarkOpacity}%<input aria-label={language === "th" ? "ความทึบลายน้ำ" : "Watermark opacity"} type="range" min="5" max="100" value={watermarkOpacity} onChange={(event) => setWatermarkOpacity(Number(event.target.value))} /></label><label>{language === "th" ? "ระยะขอบ" : "MARGIN"} · {watermarkMargin}%<input aria-label={language === "th" ? "ระยะขอบลายน้ำ" : "Watermark margin"} type="range" min="0" max="15" value={watermarkMargin} onChange={(event) => setWatermarkMargin(Number(event.target.value))} /></label><label>{language === "th" ? "สี" : "COLOR"}<input aria-label={language === "th" ? "สีลายน้ำ" : "Watermark color"} type="color" value={watermarkColor} onChange={(event) => setWatermarkColor(event.target.value)} /></label><label className="check-label"><input type="checkbox" checked={watermarkShadow} onChange={(event) => setWatermarkShadow(event.target.checked)} /> {language === "th" ? "เพิ่มเงาเพื่อให้อ่านง่าย" : "Add shadow for readability"}</label></div>
+        </>}
+
+        <div className="control-section"><span className="control-section-title">{language === "th" ? "ส่งออก" : "OUTPUT"}</span><label>{language === "th" ? "รูปแบบ" : "FORMAT"}<select aria-label={language === "th" ? "รูปแบบ" : "FORMAT"} value={format} onChange={(event) => setFormat(event.target.value as ImageFormat)}><option value="image/webp">WEBP</option><option value="image/jpeg">JPG</option><option value="image/png">PNG</option>{avifSupported && <option value="image/avif">AVIF</option>}</select></label><label>{language === "th" ? "คุณภาพ" : "QUALITY"} · {Math.round(quality * 100)}%<input type="range" min="35" max="100" value={Math.round(quality * 100)} onChange={(event) => setQuality(Number(event.target.value) / 100)} /></label></div>
 
         <div className="estimate"><span>{language === "th" ? "ต้นฉบับ" : "ORIGINAL"} <strong>{formatBytes(totalSize)}</strong></span><span>{language === "th" ? "ประมาณการ" : "ESTIMATED"} <strong>~{formatBytes(estimated)}</strong></span></div>
-        <small className="estimate-note">{language === "th" ? `ค่าปัจจุบันใช้กับ ${images.length} รูป · ขนาดจริงจะแสดงหลัง Export` : `Current edits apply to ${images.length} image${images.length === 1 ? "" : "s"}. Actual size is shown after export.`}</small>
-        {localProcessing ? <button className="secondary-button danger-outline" onClick={() => abortRef.current?.abort()}>{language === "th" ? "ยกเลิก" : "Cancel"}</button> : <button className="primary-button" disabled={busy || !images.length} onClick={() => runImages(images)}>{language === "th" ? `ประมวลผล ${images.length} ไฟล์` : `PROCESS ${images.length > 1 ? `${images.length} FILES` : "IMAGE"}`} ↗</button>}
+        <small className="estimate-note">{language === "th" ? `ค่าปัจจุบันใช้กับ ${images.length} รูป · ขนาดจริงจะแสดงหลัง Export` : `Current settings apply to ${images.length} image${images.length === 1 ? "" : "s"}. Actual size is shown after export.`}</small>
+        {localProcessing ? <button className="secondary-button danger-outline" onClick={() => abortRef.current?.abort()}>{language === "th" ? "ยกเลิก" : "Cancel"}</button> : <button className="primary-button" disabled={busy || !images.length || (watermarkMode && !watermark.trim())} onClick={() => runImages(images)}>{watermarkMode ? (language === "th" ? `ใส่ลายน้ำ ${images.length} ไฟล์` : `WATERMARK ${images.length > 1 ? `${images.length} FILES` : "IMAGE"}`) : (language === "th" ? `ประมวลผล ${images.length} ไฟล์` : `PROCESS ${images.length > 1 ? `${images.length} FILES` : "IMAGE"}`)} ↗</button>}
       </aside>
     </div>
   );

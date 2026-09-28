@@ -84,7 +84,7 @@ test("image upload, conversion and download works", async ({ page }) => {
   await upload(page, [{ name: "sample.png", mimeType: "image/png", buffer: onePixelPng }]);
 
   await expect(page.getByText("sample.png")).toBeVisible();
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
   await expect(page.getByText(/SETTINGS/i).first()).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");

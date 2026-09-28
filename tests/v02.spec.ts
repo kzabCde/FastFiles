@@ -122,7 +122,7 @@ test("mixed PDF and image selection does not suggest an unsafe shared tool", asy
 test("image processing opens Result Center with a valid downloadable output", async ({ page }) => {
   await page.goto("/");
   await upload(page, [{ name: "result.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
   const initialDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: /PROCESS IMAGE/i }).click();
   await initialDownload;
@@ -140,7 +140,7 @@ test("batch image processing downloads ZIP and reports every success", async ({ 
     { name: "one.png", mimeType: "image/png", buffer: png },
     { name: "two.png", mimeType: "image/png", buffer: png },
   ]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /PROCESS 2 FILES/i }).click();
   const download = await downloadPromise;
@@ -155,7 +155,7 @@ test("mobile Result Center has no horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await upload(page, [{ name: "mobile.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /PROCESS IMAGE/i }).click();
   await downloadPromise;
@@ -168,7 +168,7 @@ test("dark theme persists through workspace navigation", async ({ page }) => {
   await page.getByLabel("Theme").selectOption("dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await upload(page, [{ name: "dark.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
@@ -176,7 +176,7 @@ test("language can be switched before entering a workspace and remains Thai", as
   await page.goto("/");
   await page.getByRole("button", { name: "TH", exact: true }).click();
   await upload(page, [{ name: "ภาษาไทย.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /แปลงไฟล์รูป/ }).first().click();
+  await page.getByRole("button", { name: /แก้ไขรูปภาพ/ }).first().click();
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
   await expect(page.getByText("การตั้งค่า", { exact: true })).toBeVisible();
 });
@@ -239,7 +239,7 @@ test("many-page PDF progressively renders thumbnails without console errors", as
 test("language can be switched after entering a workspace", async ({ page }) => {
   await page.goto("/");
   await upload(page, [{ name: "workspace-language.png", mimeType: "image/png", buffer: png }]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
   await expect(page.getByText("SETTINGS", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Switch to Thai" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
@@ -255,7 +255,7 @@ test("partial image batch preserves successes and can retry only failed files", 
     { name: "success.png", mimeType: "image/png", buffer: png },
     { name: "retry.png", mimeType: "image/png", buffer: png },
   ]);
-  await page.getByRole("button", { name: /Image Converter/i }).first().click();
+  await page.getByRole("button", { name: /Image Editor/i }).first().click();
 
   await page.evaluate(() => {
     const original = HTMLCanvasElement.prototype.toBlob;

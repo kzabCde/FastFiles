@@ -131,8 +131,13 @@ export async function processImagesSettledAccelerated(
       if (signal?.aborted) return { outputs, failures, cancelled: true };
       const file = files[index];
       try {
-        if (workerHealthy) outputs.push(await processWithWorker(worker, file, options, signal));
-        else outputs.push((await processImagesSettled([file], options, undefined, signal)).outputs[0]);
+        if (workerHealthy) {
+          outputs.push(await processWithWorker(worker, file, options, signal));
+        } else {
+          const fallback = await processImagesSettled([file], options, undefined, signal);
+          if (fallback.outputs[0]) outputs.push(fallback.outputs[0]);
+          if (fallback.failures[0]) failures.push(fallback.failures[0]);
+        }
       } catch (error) {
         if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) {
           return { outputs, failures, cancelled: true };

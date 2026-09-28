@@ -1,13 +1,18 @@
 {
   "name": "fastfiles",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "lint": "eslint .",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "playwright test --grep-invert @visual",
+    "test:a11y": "playwright test tests/a11y-gate.spec.ts",
+    "test:visual": "playwright test tests/visual-regression.spec.ts --project=chromium",
+    "quality": "npm run typecheck && npm run lint && npm run test:unit && npm run build && npm run test:e2e && npm run test:visual"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -19,11 +24,15 @@
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.55.0",
     "@types/node": "^22.10.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.2"
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.26",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.2"
   }
 }

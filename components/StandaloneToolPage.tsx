@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import FastFilesMark from "./FastFilesMark";
 import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
 import { kindOf, type ToolDefinition } from "@/lib/tools";
@@ -109,8 +110,8 @@ export default function StandaloneToolPage({ tool }: Props) {
       <header className="site-header">
         <div className="header-inner">
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
-            <NavigationMenu language={language} onSelectTool={() => undefined} onOpenQr={() => undefined} />
-            <a className="brand" href="/" aria-label="FastFiles home"><span className="brand-mark" aria-hidden="true">F</span><span>FastFiles</span></a>
+            <NavigationMenu language={language} />
+            <a className="brand" href="/" aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></a>
           </div>
           <nav><a href="/">Home</a><a href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</a><a href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</a></nav>
           <div className="header-actions">
@@ -131,7 +132,7 @@ export default function StandaloneToolPage({ tool }: Props) {
             <p className="hero-body">{language === "th" ? "เครื่องมือนี้ทำงานบนอุปกรณ์ของคุณ เลือกไฟล์เพื่อเริ่มใช้งาน" : "This tool runs on your device. Choose files to open the workspace."}</p>
             <div className="trust-row">
               <div className="trust-chip"><span><strong>{language === "th" ? "ประมวลผลในเครื่อง" : "Local processing"}</strong><small>{language === "th" ? "ไฟล์ไม่ถูกอัปโหลดโดยไม่จำเป็น" : "No unnecessary file uploads"}</small></span></div>
-              <div className="trust-chip"><span><strong>{language === "th" ? "หน้าเครื่องมือแยก" : "Dedicated tool page"}</strong><small>/tools/{tool.id}</small></span></div>
+              <div className="trust-chip"><span><strong>{language === "th" ? "พร้อมใช้งานทันที" : "Ready when you are"}</strong><small>{language === "th" ? "วางไฟล์หรือเลือกจากอุปกรณ์" : "Drop files or choose from your device"}</small></span></div>
             </div>
           </div>
 

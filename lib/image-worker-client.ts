@@ -38,11 +38,21 @@ type WorkerResponse = WorkerSuccess | WorkerFailure;
 
 export class ImageWorkerInfrastructureError extends Error {}
 
+function canvasEncoderIsNative() {
+  if (typeof HTMLCanvasElement === "undefined") return true;
+  try {
+    return /\[native code\]/.test(Function.prototype.toString.call(HTMLCanvasElement.prototype.toBlob));
+  } catch {
+    return true;
+  }
+}
+
 export function imageWorkerSupported() {
   return typeof window !== "undefined"
     && typeof Worker !== "undefined"
     && typeof OffscreenCanvas !== "undefined"
-    && "convertToBlob" in OffscreenCanvas.prototype;
+    && "convertToBlob" in OffscreenCanvas.prototype
+    && canvasEncoderIsNative();
 }
 
 export class ImageWorkerSession {

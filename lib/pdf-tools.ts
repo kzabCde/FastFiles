@@ -7,6 +7,17 @@ export type PdfPageState = {
 
 export type ExportedFile = { name: string; blob: Blob };
 
+export type PdfTextPage = {
+  pageNumber: number;
+  text: string;
+};
+
+export type PdfTextFragment = {
+  str: string;
+  transform?: ArrayLike<number>;
+  hasEOL?: boolean;
+};
+
 export type PageNumberPosition =
   | "top-left"
   | "top-center"
@@ -371,6 +382,68 @@ export async function pdfToPngs(file: File, onProgress?: (done: number, total: n
       results.push({ name: `${stripExtension(file.name)}-page-${String(pageNumber).padStart(2, "0")}.png`, blob });
       page.cleanup();
       onProgress?.(pageNumber, doc.numPages);
+      await yieldToBrowser();
+    }
+  } finally {
+    await doc.destroy();
+  }
+
+  return results;
+}
+
+export function formatPdfTextItems(items: PdfTextFragment[]) {
+  const lines: string[] = [];
+  let fragments: string[] = [];
+  let previousY: number | undefined;
+
+  const flush = () => {
+    const line = fragments.join(" ").replace(/\s+([,.;:!?%)\]])/g, "$1").replace(/([(\[])\s+/g, "$1").trim();
+    if (line) lines.push(line);
+    fragments = [];
+  };
+
+  for (const item of items) {
+    const y = Number(item.transform?.[5]);
+    const hasPosition = Number.isFinite(y);
+    if (fragments.length && hasPosition && previousY !== undefined && Math.abs(y - previousY) > 2.5) flush();
+
+    const text = item.str.replace(/\s+/g, " ").trim();
+    if (text) fragments.push(text);
+    if (hasPosition) previousY = y;
+    if (item.hasEOL) flush();
+  }
+
+  flush();
+  return lines.join("\n");
+}
+
+export async function extractPdfText(
+  file: File,
+  pageIndices?: number[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<PdfTextPage[]> {
+  const pdfjs = await getPdfJs();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  const selected = pageIndices?.length
+    ? [...new Set(pageIndices)].filter((index) => index >= 0 && index < doc.numPages).sort((a, b) => a - b)
+    : Array.from({ length: doc.numPages }, (_, index) => index);
+
+  if (!selected.length) {
+    await doc.destroy();
+    throw new Error("No valid pages selected.");
+  }
+
+  const results: PdfTextPage[] = [];
+  try {
+    for (let position = 0; position < selected.length; position += 1) {
+      const pageIndex = selected[position];
+      const page = await doc.getPage(pageIndex + 1);
+      const content = await page.getTextContent();
+      const items = content.items.filter((item): item is typeof item & { str: string } => "str" in item);
+      results.push({ pageNumber: pageIndex + 1, text: formatPdfTextItems(items) });
+      page.cleanup();
+      onProgress?.(position + 1, selected.length);
       await yieldToBrowser();
     }
   } finally {

@@ -227,6 +227,29 @@ test("PDF metadata workspace can edit and clear supported text metadata", async 
   expect(cleaned.getAuthor() ?? "").toBe("");
 });
 
+test("PDF text extraction supports page ranges and TXT download", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [{ name: "selectable.pdf", mimeType: "application/pdf", buffer: await makePdf(3) }]);
+  await expect(page.getByText("selectable.pdf", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Extract PDF Text/i }).first().click();
+  await page.getByLabel("PAGE RANGE (BLANK = ALL)").fill("2");
+  await page.getByRole("button", { name: /EXTRACT TEXT/i }).click();
+
+  const result = page.getByTestId("pdf-text-result");
+  await expect(result).toBeVisible();
+  await expect(result).toContainText("FastFiles v0.2 page 2");
+  await expect(result).not.toContainText("FastFiles v0.2 page 1");
+
+  const downloadPromise = page.waitForEvent("download");
+  await result.getByRole("button", { name: /DOWNLOAD TXT/i }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("selectable-text.txt");
+  const path = await download.path();
+  const text = await fs.readFile(path!, "utf8");
+  expect(text).toContain("--- Page 2 ---");
+  expect(text).toContain("FastFiles v0.2 page 2");
+});
+
 test("organizer supports select all and duplicate", async ({ page }) => {
   await page.goto("/");
   await upload(page, [{ name: "organize.pdf", mimeType: "application/pdf", buffer: await makePdf(2) }]);

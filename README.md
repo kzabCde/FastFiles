@@ -115,6 +115,7 @@ The QR workspace supports Thai/English UI, Light/Dark/System themes and responsi
 - Split PDF / extract page ranges
 - Add configurable page numbers
 - PDF metadata viewer, editor and supported text-metadata clearing
+- PDF text extraction with page-range selection, in-browser preview, clipboard copy and TXT download
 - Images → PDF
 - PDF → PNG (ZIP export)
 - PDF watermarking
@@ -251,6 +252,7 @@ npm run test:e2e
 - Added smart selection-aware tool suggestions.
 - Added Result Center and partial batch recovery.
 - Added PDF page numbering and metadata inspection/editing/clearing.
+- Added local PDF text extraction with page-range selection and TXT export.
 - Expanded PDF organizer controls and keyboard support.
 - Added a live Canvas image editor with crop presets/repositioning, rotate and flip.
 - Added image resize presets, optional aspect-ratio unlock, runtime-gated AVIF and batch cancellation/retry.

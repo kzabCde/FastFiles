@@ -11,6 +11,7 @@ import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
   extractPdfPages,
+  extractPdfText,
   getPdfMetadata,
   getPdfPageCount,
   imagesToPdf,
@@ -26,6 +27,7 @@ import {
   type PdfMetadata,
   type PdfMetadataPatch,
   type PdfPageState,
+  type PdfTextPage,
   type PdfWatermarkOptions,
 } from "@/lib/pdf-tools";
 
@@ -112,6 +114,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       {tool.id === "split-pdf" && <SplitWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "page-numbers" && <PageNumbersWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-metadata" && <MetadataWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
+      {tool.id === "pdf-text" && <PdfTextWorkspace file={files[0]} language={language} run={run} update={update} busy={busy} />}
       {tool.id === "images-to-pdf" && <ImagesToPdfWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-to-images" && <PdfToImagesWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (
@@ -325,6 +328,82 @@ function MetadataWorkspace({ file, language, run, setResult, busy }: { file: Fil
         <button className="secondary-button" disabled={busy || !metadata} onClick={clear}>{language === "th" ? "ล้างข้อมูลข้อความ" : "CLEAR TEXT METADATA"}</button>
       </aside>
     </div>
+  );
+}
+
+function PdfTextWorkspace({ file, language, run, update, busy }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; busy: boolean }) {
+  const [pageCount, setPageCount] = useState(0);
+  const [range, setRange] = useState("");
+  const [pages, setPages] = useState<PdfTextPage[]>([]);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+
+  useEffect(() => {
+    let active = true;
+    getPdfPageCount(file).then((count) => { if (active) setPageCount(count); }).catch(() => { if (active) setPageCount(0); });
+    setPages([]);
+    setRange("");
+    return () => { active = false; };
+  }, [file]);
+
+  const combinedText = pages.map((page) => `--- Page ${page.pageNumber} ---\n${page.text}`).join("\n\n");
+  const hasText = pages.some((page) => page.text.trim());
+  const process = () => {
+    const selected = range.trim() ? parsePageRange(range, pageCount) : undefined;
+    if (range.trim() && !selected?.length) {
+      return run(language === "th" ? "กำลังตรวจช่วงหน้า" : "VALIDATING PAGE RANGE", 1, async () => {
+        throw new Error(language === "th" ? "ใช้รูปแบบช่วงหน้า เช่น 1-3, 5, 8-10" : "Use a page range such as 1-3, 5, 8-10.");
+      });
+    }
+    const total = selected?.length || pageCount || 1;
+    return run(language === "th" ? "กำลังดึงข้อความ" : "EXTRACTING PDF TEXT", total, async () => {
+      const extracted = await extractPdfText(file, selected, update(language === "th" ? "กำลังดึงข้อความ" : "EXTRACTING PDF TEXT"));
+      setPages(extracted);
+      setCopyState("idle");
+    });
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(combinedText);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  };
+  const download = () => {
+    const name = `${file.name.replace(/\.pdf$/i, "")}-text.txt`;
+    downloadBlob(new Blob([combinedText], { type: "text/plain;charset=utf-8" }), name);
+  };
+
+  return (
+    <>
+      <div className="workspace-grid">
+        <PdfPreview file={file} language={language} />
+        <aside className="action-card">
+          <h2>{language === "th" ? "ดึงข้อความที่เลือกได้" : "Extract selectable text"}</h2>
+          <span className="muted">{pageCount || "—"} {language === "th" ? "หน้า" : "pages"} · {formatBytes(file.size)}</span>
+          <label>{language === "th" ? "ช่วงหน้า (เว้นว่าง = ทุกหน้า)" : "PAGE RANGE (BLANK = ALL)"}<input value={range} onChange={(event) => setRange(event.target.value)} placeholder="1-3, 5, 8-10" /></label>
+          <p>{language === "th" ? "ดึงเฉพาะ text layer ที่อยู่ใน PDF การสแกนที่เป็นภาพอย่างเดียวต้องใช้ OCR ซึ่งยังไม่รวมในเครื่องมือนี้" : "This reads the PDF text layer. Image-only scans require OCR, which is not part of this tool yet."}</p>
+          <button className="primary-button" disabled={busy || !pageCount} onClick={() => void process()}>{language === "th" ? "ดึงข้อความ" : "EXTRACT TEXT"} ↗</button>
+        </aside>
+      </div>
+
+      {pages.length > 0 && (
+        <section className="pdf-text-panel" aria-live="polite" data-testid="pdf-text-result">
+          <div className="pdf-text-heading">
+            <div><span className="section-kicker">{language === "th" ? "ข้อความที่พบ" : "EXTRACTED TEXT"}</span><h2>{file.name}</h2></div>
+            <div className="pdf-text-actions">
+              {hasText && <button className="secondary-button" onClick={() => void copy()}>{copyState === "copied" ? (language === "th" ? "คัดลอกแล้ว" : "COPIED") : copyState === "failed" ? (language === "th" ? "คัดลอกไม่สำเร็จ" : "COPY FAILED") : (language === "th" ? "คัดลอกทั้งหมด" : "COPY ALL")}</button>}
+              {hasText && <button className="primary-button" onClick={download}>{language === "th" ? "ดาวน์โหลด TXT" : "DOWNLOAD TXT"} ↗</button>}
+            </div>
+          </div>
+          {!hasText ? (
+            <div className="inline-guidance">{language === "th" ? "ไม่พบข้อความที่เลือกได้ เอกสารนี้อาจเป็นไฟล์สแกนหรือไม่มี Unicode text layer" : "No selectable text was found. This may be a scanned document or a PDF without a usable Unicode text layer."}</div>
+          ) : (
+            <div className="pdf-text-pages">{pages.map((page) => <article key={page.pageNumber}><strong>{language === "th" ? `หน้า ${page.pageNumber}` : `Page ${page.pageNumber}`}</strong><pre>{page.text || (language === "th" ? "ไม่พบข้อความในหน้านี้" : "No text on this page")}</pre></article>)}</div>
+          )}
+        </section>
+      )}
+    </>
   );
 }
 

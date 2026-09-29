@@ -14,7 +14,7 @@ type Props = {
   onOpenQr?: () => void;
 };
 
-const fileToolIds = new Set(["merge-pdf", "organize-pdf", "split-pdf", "page-numbers", "pdf-metadata", "pdf-to-images", "images-to-pdf"]);
+const fileToolIds = new Set(["merge-pdf", "organize-pdf", "split-pdf", "page-numbers", "pdf-metadata", "pdf-text", "pdf-to-images", "images-to-pdf"]);
 const imageToolIds = new Set(["image-convert", "watermark"]);
 
 export default function NavigationMenu({ language }: Props) {

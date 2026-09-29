@@ -4,6 +4,7 @@ export type ToolId =
   | "split-pdf"
   | "page-numbers"
   | "pdf-metadata"
+  | "pdf-text"
   | "images-to-pdf"
   | "pdf-to-images"
   | "image-convert"
@@ -35,6 +36,7 @@ export const TOOLS: ToolDefinition[] = [
   { id: "split-pdf", label: "Split / Extract PDF", thai: "แยก / ดึงหน้า PDF", short: "SPLIT", accepts: ["pdf"], aliases: ["split pdf", "extract pages", "separate pdf", "แยก pdf", "ดึงหน้า pdf"] },
   { id: "page-numbers", label: "Add Page Numbers", thai: "ใส่เลขหน้า PDF", short: "NUMBER", accepts: ["pdf"], aliases: ["page numbers", "number pdf", "add page number", "เลขหน้า", "ใส่เลขหน้า pdf"] },
   { id: "pdf-metadata", label: "PDF Metadata", thai: "ข้อมูล PDF", short: "METADATA", accepts: ["pdf"], aliases: ["pdf metadata", "document info", "remove metadata", "ข้อมูล pdf", "ลบ metadata"] },
+  { id: "pdf-text", label: "Extract PDF Text", thai: "ดึงข้อความจาก PDF", short: "PDF → TEXT", accepts: ["pdf"], aliases: ["extract pdf text", "pdf to text", "pdf to txt", "copy pdf text", "ดึงข้อความ pdf", "pdf เป็นข้อความ"] },
   { id: "images-to-pdf", label: "Images to PDF", thai: "รูปภาพเป็น PDF", short: "IMAGE → PDF", accepts: ["image"], multiple: true, aliases: ["jpg to pdf", "png to pdf", "images to pdf", "รูปเป็น pdf", "ภาพเป็น pdf"] },
   { id: "pdf-to-images", label: "PDF to Images", thai: "PDF เป็นรูปภาพ", short: "PDF → IMAGE", accepts: ["pdf"], aliases: ["pdf to jpg", "pdf to png", "pdf to image", "pdf เป็นรูป", "แปลง pdf เป็นรูป"] },
   { id: "image-convert", label: "Image Editor", thai: "แก้ไขรูปภาพ", short: "IMAGE EDIT", accepts: ["image"], multiple: true, aliases: ["image editor", "convert image", "resize image", "compress image", "crop image", "jpg to webp", "png to jpg", "avif", "แก้ไขรูปภาพ", "แปลงรูป", "ปรับขนาดรูป", "บีบอัดรูป", "ตัดรูป"] },

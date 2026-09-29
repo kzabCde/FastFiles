@@ -19,6 +19,7 @@
 - PDF Metadata can edit Title, Author, Subject, Keywords, Creator, and Producer before exporting a new file.
 - Dedicated tool routes now perform the same file integrity checks as the homepage before opening a workspace.
 - The visible application version is read from package metadata instead of duplicated UI strings.
+- Added selectable PDF text extraction with page ranges, preview, clipboard copy, and TXT download.
 
 ### Security and privacy
 

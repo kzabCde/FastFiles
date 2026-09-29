@@ -70,6 +70,7 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
   "split-pdf": { en: "Split a PDF or extract selected pages", th: "แยก PDF หรือดึงเฉพาะหน้าที่ต้องการ" },
   "page-numbers": { en: "Add configurable page numbers locally", th: "เพิ่มเลขหน้าพร้อมกำหนดตำแหน่งได้" },
   "pdf-metadata": { en: "View and clear supported document metadata", th: "ดูและล้างข้อมูลเอกสารที่รองรับ" },
+  "pdf-text": { en: "Extract selectable PDF text as a local TXT file", th: "ดึงข้อความที่เลือกได้จาก PDF เป็นไฟล์ TXT" },
   "images-to-pdf": { en: "Turn JPG, PNG and WebP into PDF", th: "รวม JPG, PNG และ WebP เป็น PDF" },
   "pdf-to-images": { en: "Export PDF pages as PNG images", th: "แปลงหน้า PDF ออกเป็น PNG" },
   "image-convert": { en: "Convert JPG, PNG, WebP and supported AVIF", th: "แปลง JPG, PNG, WebP และ AVIF เมื่อเบราว์เซอร์รองรับ" },
@@ -209,7 +210,7 @@ export default function FastFilesApp() {
         </div>
       </header>
 
-      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
+      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/avif,.pdf,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
 
       <section className="hero-section">
         <div className="hero-wrap">
@@ -226,7 +227,7 @@ export default function FastFilesApp() {
           <button className={`drop-surface ${queue.length ? "has-files" : ""}`} onClick={openPicker}>
             <div className="drop-glow" aria-hidden="true" />
             {!queue.length ? (
-              <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>JPG</small><small>PNG</small><small>WEBP</small></div><span className="browse-link">{t.browse} <b>→</b></span></div>
+              <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span></div>
             ) : (
               <div className="drop-content loaded"><span className="ready-badge"><span className="live-dot" /> {t.detected}</span><strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong><span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.imageCount} IMG</span><span className="browse-link">+ {t.newFiles}</span></div>
             )}
@@ -295,6 +296,7 @@ function ToolGlyph({ id }: { id: ToolDefinition["id"] }) {
   if (id === "split-pdf") return <svg viewBox="0 0 24 24" {...common}><path d="M8 4h5l4 4v12H8z"/><path d="M13 4v4h4M5 12h6M8 9v6"/></svg>;
   if (id === "page-numbers") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h2v5M14 12h2a1 1 0 0 1 0 2h-2v3h3"/></svg>;
   if (id === "pdf-metadata") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h6M9 15h6M9 18h4"/></svg>;
+  if (id === "pdf-text") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h6M9 15h6M9 18h6"/><path d="M4 9h5"/></svg>;
   if (id === "images-to-pdf") return <svg viewBox="0 0 24 24" {...common}><rect x="3" y="5" width="8" height="8" rx="1.5"/><path d="m4.5 11 2-2 1.5 1.5 1.5-2 1.5 2.5M15 5h4a2 2 0 0 1 2 2v12h-8v-4"/><path d="M16 16h2M17 15v2"/></svg>;
   if (id === "pdf-to-images") return <svg viewBox="0 0 24 24" {...common}><path d="M5 4h8l4 4v4"/><path d="M13 4v4h4"/><rect x="10" y="13" width="10" height="7" rx="1.5"/><path d="m11.5 18 2-2 1.5 1.5 1.5-2 2 2.5"/></svg>;
   if (id === "image-convert") return <svg viewBox="0 0 24 24" {...common}><rect x="4" y="5" width="12" height="12" rx="2"/><path d="m5.5 15 3-3 2 2 2-3 3.5 4M17 8h3v3M20 8l-4 4"/></svg>;

@@ -66,6 +66,7 @@ const copy = {
 
 const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> = {
   "merge-pdf": { en: "Combine multiple PDFs into one file", th: "รวม PDF หลายไฟล์เป็นไฟล์เดียว" },
+  "compress-pdf": { en: "Reduce image-heavy PDFs by flattening pages locally", th: "ลดขนาด PDF ที่มีภาพเยอะโดยแปลงหน้าเป็นภาพในเครื่อง" },
   "organize-pdf": { en: "Reorder, rotate, duplicate and remove pages", th: "เรียง หมุน ทำซ้ำ และลบหน้า PDF" },
   "split-pdf": { en: "Split a PDF or extract selected pages", th: "แยก PDF หรือดึงเฉพาะหน้าที่ต้องการ" },
   "page-numbers": { en: "Add configurable page numbers locally", th: "เพิ่มเลขหน้าพร้อมกำหนดตำแหน่งได้" },
@@ -292,6 +293,7 @@ function FastFilesMark() {
 function ToolGlyph({ id }: { id: ToolDefinition["id"] }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (id === "merge-pdf") return <svg viewBox="0 0 24 24" {...common}><path d="M7 5h8a2 2 0 0 1 2 2v10"/><path d="M5 7v10a2 2 0 0 0 2 2h8"/><path d="M12 11v6M9 14h6"/></svg>;
+  if (id === "compress-pdf") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h6M9 16h6"/><path d="m4 10 3 3-3 3M20 10l-3 3 3 3"/></svg>;
   if (id === "organize-pdf") return <svg viewBox="0 0 24 24" {...common}><rect x="4" y="5" width="6" height="6" rx="1"/><rect x="14" y="5" width="6" height="6" rx="1"/><rect x="4" y="15" width="6" height="4" rx="1"/><path d="M14 17h6M17 14v6"/></svg>;
   if (id === "split-pdf") return <svg viewBox="0 0 24 24" {...common}><path d="M8 4h5l4 4v12H8z"/><path d="M13 4v4h4M5 12h6M8 9v6"/></svg>;
   if (id === "page-numbers") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h2v5M14 12h2a1 1 0 0 1 0 2h-2v3h3"/></svg>;

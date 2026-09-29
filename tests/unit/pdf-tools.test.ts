@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { formatPdfTextItems, parsePageRange } from "../../lib/pdf-tools";
+import { formatPdfTextItems, getRasterPdfCompressionSettings, parsePageRange } from "../../lib/pdf-tools";
+
+describe("getRasterPdfCompressionSettings", () => {
+  it("uses a higher render density and JPEG quality for the balanced preset", () => {
+    const balanced = getRasterPdfCompressionSettings("balanced");
+    const small = getRasterPdfCompressionSettings("small");
+    expect(balanced.dpi).toBeGreaterThan(small.dpi);
+    expect(balanced.quality).toBeGreaterThan(small.quality);
+  });
+});
 
 describe("parsePageRange", () => {
   it("parses, sorts, and de-duplicates valid pages", () => {

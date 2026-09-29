@@ -20,6 +20,7 @@ export type WorkspaceResult = {
   failed?: FailedEntry[];
   before: number;
   after: number;
+  notice?: string;
   cancelled?: boolean;
   retryFailed?: () => void;
 };
@@ -78,6 +79,7 @@ export default function ResultCenter({ result, language, onChangeSettings, onPro
         <div><span>{t.output}</span><strong>{formatBytes(result.after)}</strong></div>
         <div><span>{t.saved}</span><strong>{saved ? `${saved}%` : "—"}</strong></div>
       </div>
+      {result.notice && <div className="inline-guidance result-guidance">{result.notice}</div>}
       <div className="result-files">
         {result.entries.map((entry) => (
           <div className="result-file" key={`${entry.name}-${entry.blob.size}`}>

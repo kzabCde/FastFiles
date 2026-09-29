@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
 import JSZip from "jszip";
 import fs from "node:fs/promises";
+import { deflateSync } from "node:zlib";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFElEQVR4nGOsOLGAARtgwio6aCUAei8B8F0+AyAAAAAASUVORK5CYII=", "base64");
 
@@ -12,6 +13,53 @@ async function makePdf(pageCount = 1) {
     page.drawText(`FastFiles v0.2 page ${index + 1}`, { x: 48, y: 780, size: 18 });
   }
   return Buffer.from(await pdf.save());
+}
+
+function pngChunk(type: string, data: Buffer) {
+  const typeBytes = Buffer.from(type, "ascii");
+  const payload = Buffer.concat([typeBytes, data]);
+  let crc = 0xffffffff;
+  for (const byte of payload) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  const header = Buffer.alloc(4);
+  header.writeUInt32BE(data.length);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+  return Buffer.concat([header, payload, checksum]);
+}
+
+async function makeImageHeavyPdf() {
+  const width = 720;
+  const height = 900;
+  const rows = Buffer.alloc((width * 3 + 1) * height);
+  let random = 0x12345678;
+  for (let y = 0; y < height; y += 1) {
+    const offset = y * (width * 3 + 1);
+    rows[offset] = 0;
+    for (let x = 0; x < width * 3; x += 1) {
+      random ^= random << 13;
+      random ^= random >>> 17;
+      random ^= random << 5;
+      rows[offset + x + 1] = random & 0xff;
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  const image = Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(rows, { level: 0 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  const pdf = await PDFDocument.create();
+  const embedded = await pdf.embedPng(image);
+  const page = pdf.addPage([595.28, 841.89]);
+  page.drawImage(embedded, { x: 0, y: 0, width: 595.28, height: 841.89 });
+  return Buffer.from(await pdf.save({ useObjectStreams: false }));
 }
 
 async function upload(page: Page, files: Array<{ name: string; mimeType: string; buffer: Buffer }>) {
@@ -248,6 +296,48 @@ test("PDF text extraction supports page ranges and TXT download", async ({ page 
   const text = await fs.readFile(path!, "utf8");
   expect(text).toContain("--- Page 2 ---");
   expect(text).toContain("FastFiles v0.2 page 2");
+});
+
+test("scanned PDF compression compares output honestly before download", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [{ name: "text-document.pdf", mimeType: "application/pdf", buffer: await makePdf(2) }]);
+  await page.getByRole("button", { name: /Compress Scanned PDF/i }).first().click();
+  const workspace = page.getByTestId("compress-pdf-workspace");
+  await expect(workspace).toBeVisible();
+  await workspace.getByRole("button", { name: "Small file" }).click();
+  await workspace.getByRole("button", { name: /PROCESS & COMPARE/i }).click();
+
+  const result = page.getByTestId("result-center");
+  await expect(result).toBeVisible();
+  await expect(result).toContainText("OUTPUT IS NOT SMALLER THAN THE ORIGINAL");
+  await expect(result).toContainText("Keep the original");
+
+  const downloadPromise = page.waitForEvent("download");
+  await result.getByRole("button", { name: "Download", exact: true }).first().click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("text-document-compressed.pdf");
+  const path = await download.path();
+  const compressed = await PDFDocument.load(await fs.readFile(path!));
+  expect(compressed.getPageCount()).toBe(2);
+});
+
+test("scanned PDF compression reduces an image-heavy document", async ({ page }) => {
+  await page.goto("/");
+  const source = await makeImageHeavyPdf();
+  await upload(page, [{ name: "large-scan.pdf", mimeType: "application/pdf", buffer: source }]);
+  await page.getByRole("button", { name: /Compress Scanned PDF/i }).first().click();
+  await page.getByTestId("compress-pdf-workspace").getByRole("button", { name: "Small file" }).click();
+  await page.getByRole("button", { name: /PROCESS & COMPARE/i }).click();
+
+  const result = page.getByTestId("result-center");
+  await expect(result).toContainText("PDF SIZE REDUCED");
+  const downloadPromise = page.waitForEvent("download");
+  await result.getByRole("button", { name: "Download", exact: true }).first().click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  const output = await fs.readFile(path!);
+  expect(output.byteLength).toBeLessThan(source.byteLength);
+  expect((await PDFDocument.load(output)).getPageCount()).toBe(1);
 });
 
 test("organizer supports select all and duplicate", async ({ page }) => {

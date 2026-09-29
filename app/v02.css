@@ -73,6 +73,8 @@
 .pdf-text-pages pre { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--text); font:400 12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; }
 .preset-row { display:flex; flex-wrap:wrap; gap:6px; }
 .preset-row button { padding:7px 9px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); font-size:9px; }
+.preset-row button.active { border-color:color-mix(in srgb, var(--accent) 65%, var(--line)); background:var(--accent-soft); color:var(--accent-ink); }
+.result-guidance { margin:0 0 18px; }
 .check-label { display:flex !important; grid-template-columns:auto 1fr; align-items:center; gap:8px; }
 .check-label input { width:15px; height:15px; margin:0; }
 .estimate-note { color:var(--muted); font-size:9px; line-height:1.45; }

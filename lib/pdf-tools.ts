@@ -18,6 +18,13 @@ export type PdfTextFragment = {
   hasEOL?: boolean;
 };
 
+export type RasterPdfCompressionPreset = "balanced" | "small";
+
+export type RasterPdfCompressionSettings = {
+  dpi: number;
+  quality: number;
+};
+
 export type PageNumberPosition =
   | "top-left"
   | "top-center"
@@ -290,6 +297,61 @@ async function getPdfJs() {
     pdfWorkerConfigured = true;
   }
   return pdfjs;
+}
+
+export function getRasterPdfCompressionSettings(preset: RasterPdfCompressionPreset): RasterPdfCompressionSettings {
+  return preset === "small"
+    ? { dpi: 96, quality: 0.56 }
+    : { dpi: 144, quality: 0.78 };
+}
+
+export async function compressScannedPdf(
+  file: File,
+  preset: RasterPdfCompressionPreset,
+  onProgress?: (done: number, total: number) => void,
+) {
+  const pdfjs = await getPdfJs();
+  const sourceBytes = new Uint8Array(await file.arrayBuffer());
+  const source = await pdfjs.getDocument({ data: sourceBytes }).promise;
+  const output = await PDFDocument.create();
+  const settings = getRasterPdfCompressionSettings(preset);
+
+  try {
+    for (let pageNumber = 1; pageNumber <= source.numPages; pageNumber += 1) {
+      const page = await source.getPage(pageNumber);
+      const base = page.getViewport({ scale: 1 });
+      const requestedScale = settings.dpi / 72;
+      const maxPixelScale = Math.sqrt(12_000_000 / Math.max(1, base.width * base.height));
+      const scale = Math.max(0.5, Math.min(requestedScale, maxPixelScale, 4));
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      try {
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) throw new Error("Canvas is not available in this browser.");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: context, viewport }).promise;
+        const jpeg = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("Unable to encode a compressed PDF page."))), "image/jpeg", settings.quality);
+        });
+        const image = await output.embedJpg(await jpeg.arrayBuffer());
+        const outputPage = output.addPage([base.width, base.height]);
+        outputPage.drawImage(image, { x: 0, y: 0, width: base.width, height: base.height });
+      } finally {
+        page.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      onProgress?.(pageNumber, source.numPages);
+      await yieldToBrowser();
+    }
+  } finally {
+    await source.destroy();
+  }
+
+  return bytesToBlob(await output.save({ useObjectStreams: true }), "application/pdf");
 }
 
 export async function renderPdfThumbnails(

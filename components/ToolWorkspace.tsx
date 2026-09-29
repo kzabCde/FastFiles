@@ -10,6 +10,7 @@ import PdfPreview from "./PdfPreview";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
+  compressScannedPdf,
   extractPdfPages,
   extractPdfText,
   getPdfMetadata,
@@ -29,6 +30,7 @@ import {
   type PdfPageState,
   type PdfTextPage,
   type PdfWatermarkOptions,
+  type RasterPdfCompressionPreset,
 } from "@/lib/pdf-tools";
 
 type Props = {
@@ -110,6 +112,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       </header>
 
       {tool.id === "merge-pdf" && <MergeWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
+      {tool.id === "compress-pdf" && <CompressPdfWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "organize-pdf" && <OrganizeWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "split-pdf" && <SplitWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "page-numbers" && <PageNumbersWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
@@ -151,6 +154,52 @@ function MergeWorkspace({ files, language, run, update, setResult, busy }: { fil
     setResult({ label: language === "th" ? `รวม PDF ${pdfs.length} ไฟล์แล้ว` : `${pdfs.length} PDFs MERGED`, entries: [{ name, blob }], before: pdfs.reduce((sum, file) => sum + file.size, 0), after: blob.size });
   });
   return <div className="workspace-grid"><div><span className="eyebrow">{pdfs.length} PDF FILES</span><FileList files={pdfs} /></div><aside className="action-card"><h2>{language === "th" ? "รวมตามลำดับนี้" : "Merge in this order"}</h2><p>{language === "th" ? "ลำดับจาก File Queue จะถูกใช้ในการรวมไฟล์" : "The File Queue order is preserved in the merged PDF."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "รวมและดาวน์โหลด" : "MERGE & DOWNLOAD"} ↗</button></aside></div>;
+}
+
+function CompressPdfWorkspace({ file, language, run, update, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
+  const [pageCount, setPageCount] = useState(0);
+  const [preset, setPreset] = useState<RasterPdfCompressionPreset>("balanced");
+
+  useEffect(() => {
+    let active = true;
+    getPdfPageCount(file).then((count) => { if (active) setPageCount(count); }).catch(() => { if (active) setPageCount(0); });
+    return () => { active = false; };
+  }, [file]);
+
+  const process = () => run(language === "th" ? "กำลังบีบอัด PDF สแกน" : "COMPRESSING SCANNED PDF", pageCount || 1, async () => {
+    const blob = await compressScannedPdf(file, preset, update(language === "th" ? "กำลังบีบอัด PDF สแกน" : "COMPRESSING SCANNED PDF"));
+    const reduced = blob.size < file.size;
+    const name = `${file.name.replace(/\.pdf$/i, "")}-compressed.pdf`;
+    setResult({
+      label: reduced
+        ? (language === "th" ? "ลดขนาด PDF แล้ว" : "PDF SIZE REDUCED")
+        : (language === "th" ? "ไฟล์ใหม่ไม่เล็กกว่าต้นฉบับ" : "OUTPUT IS NOT SMALLER THAN THE ORIGINAL"),
+      entries: [{ name, blob, originalSize: file.size, sourceName: file.name }],
+      before: file.size,
+      after: blob.size,
+      notice: reduced
+        ? (language === "th" ? "ทุกหน้าถูกแปลงเป็นภาพแล้ว ข้อความ ลิงก์ และฟอร์มจะไม่สามารถเลือกหรือแก้ไขได้" : "Pages were flattened to images. Selectable text, links, and forms are no longer interactive.")
+        : (language === "th" ? "แนะนำให้เก็บไฟล์ต้นฉบับ เครื่องมือนี้เหมาะกับ PDF สแกนหรือไฟล์ที่มีภาพขนาดใหญ่ มากกว่า PDF ที่เป็นข้อความอยู่แล้ว" : "Keep the original. This tool works best for scans and image-heavy PDFs, not PDFs that are already mostly text."),
+    });
+  });
+
+  return (
+    <div className="workspace-grid" data-testid="compress-pdf-workspace">
+      <PdfPreview file={file} language={language} />
+      <aside className="action-card">
+        <h2>{language === "th" ? "บีบอัด PDF สแกน" : "Compress scanned PDF"}</h2>
+        <span className="muted">{pageCount || "—"} {language === "th" ? "หน้า" : "pages"} · {formatBytes(file.size)}</span>
+        <span className="control-section-title">{language === "th" ? "ระดับการบีบอัด" : "COMPRESSION LEVEL"}</span>
+        <div className="preset-row">
+          <button type="button" className={preset === "balanced" ? "active" : ""} aria-pressed={preset === "balanced"} onClick={() => setPreset("balanced")}>{language === "th" ? "สมดุล" : "Balanced"}</button>
+          <button type="button" className={preset === "small" ? "active" : ""} aria-pressed={preset === "small"} onClick={() => setPreset("small")}>{language === "th" ? "ไฟล์เล็ก" : "Small file"}</button>
+        </div>
+        <div className="inline-guidance">{language === "th" ? "เหมาะกับไฟล์สแกนหรือ PDF ที่มีภาพเยอะ ทุกหน้าจะถูกแปลงเป็น JPEG และประกอบกลับเป็น PDF" : "Best for scans and image-heavy PDFs. Every page is rendered to JPEG and rebuilt as a PDF."}</div>
+        <p>{language === "th" ? "ข้อความที่เลือกได้ ลิงก์ ฟอร์ม ลายเซ็น และโครงสร้างเอกสารจะถูกรวมเป็นภาพ โปรดเก็บไฟล์ต้นฉบับไว้" : "Selectable text, links, forms, signatures, and document structure will be flattened. Keep the original file."}</p>
+        <button className="primary-button" disabled={busy || !pageCount} onClick={() => void process()}>{language === "th" ? "ประมวลผลและเปรียบเทียบ" : "PROCESS & COMPARE"} ↗</button>
+      </aside>
+    </div>
+  );
 }
 
 function OrganizeWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {

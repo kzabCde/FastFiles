@@ -1,5 +1,6 @@
 export type ToolId =
   | "merge-pdf"
+  | "compress-pdf"
   | "organize-pdf"
   | "split-pdf"
   | "page-numbers"
@@ -32,6 +33,7 @@ const LEGACY_IMAGE_TOOLS: ToolDefinition[] = [
 
 export const TOOLS: ToolDefinition[] = [
   { id: "merge-pdf", label: "Merge PDF", thai: "รวม PDF", short: "MERGE", accepts: ["pdf"], multiple: true, aliases: ["merge pdf", "combine pdf", "join pdf", "รวม pdf", "รวมไฟล์ pdf"] },
+  { id: "compress-pdf", label: "Compress Scanned PDF", thai: "บีบอัด PDF สแกน", short: "COMPRESS PDF", accepts: ["pdf"], aliases: ["compress pdf", "reduce pdf size", "small pdf", "บีบอัด pdf", "ลดขนาด pdf", "pdf สแกน"] },
   { id: "organize-pdf", label: "Organize PDF", thai: "จัดหน้า PDF", short: "ORGANIZE", accepts: ["pdf"], aliases: ["organize pdf", "reorder pages", "delete page", "duplicate page", "rotate page", "จัดหน้า pdf", "เรียงหน้า"] },
   { id: "split-pdf", label: "Split / Extract PDF", thai: "แยก / ดึงหน้า PDF", short: "SPLIT", accepts: ["pdf"], aliases: ["split pdf", "extract pages", "separate pdf", "แยก pdf", "ดึงหน้า pdf"] },
   { id: "page-numbers", label: "Add Page Numbers", thai: "ใส่เลขหน้า PDF", short: "NUMBER", accepts: ["pdf"], aliases: ["page numbers", "number pdf", "add page number", "เลขหน้า", "ใส่เลขหน้า pdf"] },

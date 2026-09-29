@@ -20,6 +20,7 @@
 - Dedicated tool routes now perform the same file integrity checks as the homepage before opening a workspace.
 - The visible application version is read from package metadata instead of duplicated UI strings.
 - Added selectable PDF text extraction with page ranges, preview, clipboard copy, and TXT download.
+- Added browser-local scanned PDF compression with Balanced/Small presets, explicit flattening warnings, and before/after size comparison.
 
 ### Security and privacy
 
@@ -29,6 +30,7 @@
 ### Known limitations
 
 - Encrypted PDFs cannot be edited.
+- PDF compression is raster-based and intended for scans/image-heavy documents; selectable content and interactive structure are flattened.
 - Browser memory limits vary by device and workload.
 - AVIF export depends on browser Canvas support.
 - QR customization cannot guarantee scanning in every environment.

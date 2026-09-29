@@ -24,7 +24,8 @@ export type QueueSummary = {
   totalPages: number;
 };
 
-const imageExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+const imageExtensions = new Set(["jpg", "jpeg", "png", "webp", "avif"]);
+const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 
 export function queueId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}:${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
@@ -54,7 +55,7 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
   }
 
   const ext = file.name.toLowerCase().split(".").pop() ?? "";
-  if (!imageExtensions.has(ext) && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+  if (!imageExtensions.has(ext) && !imageMimeTypes.has(file.type)) {
     return { id, file, kind, status: "error", message: "unsupported-image" };
   }
 
@@ -71,7 +72,7 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
       height,
     };
   } catch {
-    return { id, file, kind, status: "error", message: "invalid-image" };
+    return { id, file, kind, status: "error", message: ext === "avif" || file.type === "image/avif" ? "unsupported-avif" : "invalid-image" };
   }
 }
 
@@ -103,7 +104,8 @@ export function fileIssueMessage(code: string, language: "en" | "th") {
   const messages: Record<string, [string, string]> = {
     "zero-byte": ["This file is empty.", "ไฟล์นี้ไม่มีข้อมูล"],
     unsupported: ["This file type is not supported.", "ยังไม่รองรับไฟล์ประเภทนี้"],
-    "unsupported-image": ["This image format is not supported.", "ยังไม่รองรับรูปแบบภาพนี้"],
+    "unsupported-image": ["This image format is not supported by FastFiles.", "FastFiles ยังไม่รองรับรูปแบบภาพนี้"],
+    "unsupported-avif": ["This browser cannot decode this AVIF image. Try a current Chromium, Firefox, or Safari release, or convert it first.", "เบราว์เซอร์นี้ไม่สามารถอ่านภาพ AVIF ไฟล์นี้ได้ กรุณาใช้เบราว์เซอร์เวอร์ชันปัจจุบันหรือแปลงไฟล์ก่อน"],
     "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
     "invalid-pdf": ["The PDF appears to be corrupted or invalid.", "ไฟล์ PDF อาจเสียหายหรือรูปแบบไม่ถูกต้อง"],
     "password-pdf": ["Password-protected PDFs are not supported yet.", "ยังไม่รองรับ PDF ที่มีรหัสผ่าน"],
@@ -117,5 +119,6 @@ function mimeMatchesExtension(mime: string, extension: string) {
   if (mime === "image/jpeg") return extension === "jpg" || extension === "jpeg";
   if (mime === "image/png") return extension === "png";
   if (mime === "image/webp") return extension === "webp";
+  if (mime === "image/avif") return extension === "avif";
   return true;
 }

@@ -48,7 +48,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   const inputAccept = useMemo(() => {
     const values: string[] = [];
     if (acceptsPdf) values.push("application/pdf", ".pdf");
-    if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", ".jpg", ".jpeg", ".png", ".webp");
+    if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", "image/avif", ".jpg", ".jpeg", ".png", ".webp", ".avif");
     return values.join(",");
   }, [acceptsPdf, acceptsImage]);
 
@@ -111,7 +111,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   }
 
   const title = language === "th" ? tool.thai : tool.label;
-  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP";
+  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
 
   return (
     <main

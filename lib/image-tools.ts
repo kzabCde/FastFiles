@@ -1,3 +1,10 @@
+import {
+  ImageWorkerInfrastructureError,
+  ImageWorkerSession,
+  imageWorkerSupported,
+  type WorkerImageOptions,
+} from "@/lib/image-worker-client";
+
 export type ImageFormat = "image/jpeg" | "image/png" | "image/webp" | "image/avif";
 export type WatermarkPosition = "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right" | "custom";
 
@@ -291,6 +298,8 @@ export async function processImage(file: File, options: ImageProcessOptions): Pr
     canvas.height = targetHeight;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Canvas is not available in this browser.");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     if (options.format === "image/jpeg") {
       context.fillStyle = "#ffffff";
@@ -318,6 +327,29 @@ export async function processImage(file: File, options: ImageProcessOptions): Pr
   }
 }
 
+function workerOptions(options: ImageProcessOptions): WorkerImageOptions {
+  return {
+    format: options.format,
+    quality: options.quality,
+    maxWidth: options.maxWidth,
+    maxHeight: options.maxHeight,
+    scalePercent: options.scalePercent,
+    cropSquare: options.cropSquare,
+    cropAspect: options.cropAspect,
+    cropRect: options.cropRect,
+    cropCenterX: options.cropCenterX,
+    cropCenterY: options.cropCenterY,
+    rotation: options.rotation,
+    flipX: options.flipX,
+    flipY: options.flipY,
+    preserveAspect: options.preserveAspect,
+  };
+}
+
+function canAccelerate(options: ImageProcessOptions) {
+  return imageWorkerSupported() && !options.watermarkImage && !options.watermark?.trim();
+}
+
 export async function processImagesSettled(
   files: File[],
   options: ImageProcessOptions,
@@ -326,17 +358,52 @@ export async function processImagesSettled(
 ): Promise<BatchImageResult> {
   const outputs: ProcessedImage[] = [];
   const failures: ImageFailure[] = [];
+  let worker: ImageWorkerSession | null = null;
+  let workerHealthy = false;
 
-  for (let index = 0; index < files.length; index += 1) {
-    if (signal?.aborted) return { outputs, failures, cancelled: true };
-    const file = files[index];
+  if (canAccelerate(options)) {
     try {
-      outputs.push(await processImage(file, options));
-    } catch (error) {
-      failures.push({ file, error: error instanceof Error ? error.message : "Unable to process this image." });
+      worker = new ImageWorkerSession();
+      workerHealthy = true;
+    } catch {
+      worker = null;
     }
-    onProgress?.(index + 1, files.length, file);
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+  }
+
+  try {
+    for (let index = 0; index < files.length; index += 1) {
+      if (signal?.aborted) return { outputs, failures, cancelled: true };
+      const file = files[index];
+      try {
+        if (worker && workerHealthy) {
+          const processed = await worker.process(file, workerOptions(options), signal);
+          outputs.push({ ...processed, source: file });
+        } else {
+          outputs.push(await processImage(file, options));
+        }
+      } catch (error) {
+        if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+          return { outputs, failures, cancelled: true };
+        }
+
+        if (error instanceof ImageWorkerInfrastructureError) {
+          workerHealthy = false;
+          worker?.terminate();
+          worker = null;
+          try {
+            outputs.push(await processImage(file, options));
+          } catch (fallbackError) {
+            failures.push({ file, error: fallbackError instanceof Error ? fallbackError.message : "Unable to process this image." });
+          }
+        } else {
+          failures.push({ file, error: error instanceof Error ? error.message : "Unable to process this image." });
+        }
+      }
+      onProgress?.(index + 1, files.length, file);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    }
+  } finally {
+    worker?.terminate();
   }
 
   return { outputs, failures, cancelled: false };

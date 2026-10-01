@@ -114,7 +114,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
     <section className="workspace-shell" data-job-status={status}>
       <header className="workspace-head">
         <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 8 }}>
-          <NavigationMenu language={language} onSelectTool={onSelectTool} />
+          <NavigationMenu variant="mobile" language={language} onSelectTool={onSelectTool} />
           <button
             className="text-button workspace-back-tools"
             onClick={onBack}

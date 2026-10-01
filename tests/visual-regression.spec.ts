@@ -9,7 +9,7 @@ test("@visual stable desktop surfaces", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
   await expect(page).toHaveScreenshot("home-desktop.png", { fullPage: true, animations: "disabled" });
-  const menuButton = page.getByRole("button", { name: "Open tools menu" });
+  const menuButton = page.getByRole("button", { name: "Tools", exact: true });
   await menuButton.waitFor({ state: "visible", timeout: 10000 });
   await page.waitForTimeout(500);
   await menuButton.click();

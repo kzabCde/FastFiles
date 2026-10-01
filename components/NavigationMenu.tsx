@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { TOOLS, type ToolDefinition } from "@/lib/tools";
@@ -12,6 +12,7 @@ type Props = {
   language: Language;
   onSelectTool?: (tool: ToolDefinition) => void;
   onOpenQr?: () => void;
+  variant?: "desktop" | "mobile";
 };
 
 const fileToolIds = new Set([
@@ -29,16 +30,23 @@ const fileToolIds = new Set([
 ]);
 const imageToolIds = new Set(["image-convert", "watermark"]);
 
-export default function NavigationMenu({ language }: Props) {
+export default function NavigationMenu({ language, variant = "mobile" }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = `fastfiles-tool-menu-${useId().replace(/:/g, "")}`;
   const pathname = usePathname();
   const fileTools = TOOLS.filter((tool) => fileToolIds.has(tool.id));
   const imageTools = TOOLS.filter((tool) => imageToolIds.has(tool.id));
   const qrLabel = language === "th" ? "สร้าง QR Code" : "QR Generator";
 
   useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    if (variant === "mobile") document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
@@ -68,119 +76,142 @@ export default function NavigationMenu({ language }: Props) {
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
+      document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [open, variant]);
 
   return (
-    <div className={styles.root} ref={rootRef}>
+    <div className={`${styles.root} ${variant === "desktop" ? styles.desktopRoot : styles.mobileRoot}`} ref={rootRef}>
       <button
-        className={`${styles.menuButton} ${open ? styles.open : ""}`}
-        aria-label={language === "th" ? "เปิดเมนูเครื่องมือ" : "Open tools menu"}
+        type="button"
+        className={`${variant === "desktop" ? styles.toolsButton : styles.menuButton} ${open ? styles.open : ""}`}
+        aria-label={variant === "desktop" ? (language === "th" ? "เครื่องมือ" : "Tools") : (language === "th" ? "เปิดเมนูเครื่องมือ" : "Open tools menu")}
         aria-expanded={open}
-        aria-controls="fastfiles-tool-menu"
+        aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
       >
-        <span />
-        <span />
-        <span />
+        {variant === "desktop" ? (
+          <>
+            {language === "th" ? "เครื่องมือ" : "Tools"}
+            <b aria-hidden="true" className={styles.chevron}>⌄</b>
+          </>
+        ) : (
+          <>
+            <span />
+            <span />
+            <span />
+          </>
+        )}
       </button>
 
       {open && (
         <div
-          id="fastfiles-tool-menu"
+          id={menuId}
           className={styles.dropdown}
           data-testid="navigation-dropdown"
           role="navigation"
           aria-label={language === "th" ? "เมนู FastFiles" : "FastFiles menu"}
         >
-          <div className={styles.dropdownHead}>
-            <div>
-              <span>FASTFILES</span>
-              <strong>{language === "th" ? "เลือกเครื่องมือ" : "Choose a tool"}</strong>
-            </div>
-            <small>{language === "th" ? "แต่ละเครื่องมือเปิดเป็นหน้าแยก" : "Each tool opens on its own page"}</small>
-          </div>
-
-          <div className={styles.sections}>
-            <section className={styles.fileGroup}>
-              <div className={styles.groupTitle}>
-                <span className={styles.kicker}>01</span>
-                <h2>{language === "th" ? "เครื่องมือไฟล์" : "File Tools"}</h2>
+          <div className={styles.megaContainer}>
+            <div className={styles.dropdownHead}>
+              <div>
+                <span>FASTFILES</span>
+                <strong>{language === "th" ? "เลือกเครื่องมือ" : "Choose a tool"}</strong>
               </div>
-              <div className={styles.links}>
-                {fileTools.map((tool) => {
-                  const label = language === "th" ? tool.thai : tool.label;
-                  return (
-                    <a
-                      key={`file-${tool.id}`}
-                      className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""}
-                      aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined}
-                      aria-label={label}
-                      href={`/tools/${tool.id}`}
-                      onClick={() => setOpen(false)}
-                    >
-                      <span>{label}</span>
-                      <b aria-hidden="true">↗</b>
-                    </a>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className={styles.imageGroup}>
-              <div className={styles.groupTitle}>
-                <span className={styles.kicker}>02</span>
-                <h2>{language === "th" ? "เครื่องมือรูปภาพ" : "Image Tools"}</h2>
-              </div>
-              <div className={styles.links}>
-                {imageTools.map((tool) => {
-                  const label = language === "th" ? tool.thai : tool.label;
-                  return (
-                    <a
-                      key={`image-${tool.id}`}
-                      className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""}
-                      aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined}
-                      aria-label={label}
-                      href={`/tools/${tool.id}`}
-                      onClick={() => setOpen(false)}
-                    >
-                      <span>{label}</span>
-                      <b aria-hidden="true">↗</b>
-                    </a>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className={styles.qrGroup}>
-              <div className={styles.groupTitle}>
-                <span className={styles.kicker}>03</span>
-                <h2>QR Code</h2>
-              </div>
-              <div className={styles.links}>
-                <a
-                  data-testid="nav-qr-generator"
-                  className={pathname === "/qr" ? styles.activeLink : ""}
-                  aria-current={pathname === "/qr" ? "page" : undefined}
-                  aria-label={qrLabel}
-                  href="/qr"
+              <div className={styles.dropdownActions}>
+                <small>{language === "th" ? "แต่ละเครื่องมือเปิดเป็นหน้าแยก" : "Each tool opens on its own page"}</small>
+                <button
+                  type="button"
+                  className={styles.closeButton}
+                  aria-label={language === "th" ? "ปิดเมนูเครื่องมือ" : "Close tools menu"}
                   onClick={() => setOpen(false)}
                 >
-                  <span>{qrLabel}</span>
-                  <b aria-hidden="true">↗</b>
-                </a>
+                  ×
+                </button>
               </div>
-            </section>
-          </div>
+            </div>
 
-          <div className={styles.bottomLinks}>
-            <Link href="/#privacy" onClick={() => setOpen(false)}>
-              {language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}
-            </Link>
-            <Link href="/#about" onClick={() => setOpen(false)}>
-              {language === "th" ? "เกี่ยวกับ" : "About"}
-            </Link>
-            <span>Local-first · No account</span>
+            <div className={styles.sections}>
+              <section className={styles.fileGroup}>
+                <div className={styles.groupTitle}>
+                  <span className={styles.kicker}>01</span>
+                  <h2>{language === "th" ? "เครื่องมือไฟล์" : "File Tools"}</h2>
+                </div>
+                <div className={styles.links}>
+                  {fileTools.map((tool) => {
+                    const label = language === "th" ? tool.thai : tool.label;
+                    return (
+                      <Link
+                        key={`file-${tool.id}`}
+                        className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""}
+                        aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined}
+                        aria-label={label}
+                        href={`/tools/${tool.id}`}
+                        onClick={() => setOpen(false)}
+                      >
+                        <span>{label}</span>
+                        <b aria-hidden="true">↗</b>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className={styles.imageGroup}>
+                <div className={styles.groupTitle}>
+                  <span className={styles.kicker}>02</span>
+                  <h2>{language === "th" ? "เครื่องมือรูปภาพ" : "Image Tools"}</h2>
+                </div>
+                <div className={styles.links}>
+                  {imageTools.map((tool) => {
+                    const label = language === "th" ? tool.thai : tool.label;
+                    return (
+                      <Link
+                        key={`image-${tool.id}`}
+                        className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""}
+                        aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined}
+                        aria-label={label}
+                        href={`/tools/${tool.id}`}
+                        onClick={() => setOpen(false)}
+                      >
+                        <span>{label}</span>
+                        <b aria-hidden="true">↗</b>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className={styles.qrGroup}>
+                <div className={styles.groupTitle}>
+                  <span className={styles.kicker}>03</span>
+                  <h2>QR Code</h2>
+                </div>
+                <div className={styles.links}>
+                  <Link
+                    data-testid="nav-qr-generator"
+                    className={pathname === "/qr" ? styles.activeLink : ""}
+                    aria-current={pathname === "/qr" ? "page" : undefined}
+                    aria-label={qrLabel}
+                    href="/qr"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span>{qrLabel}</span>
+                    <b aria-hidden="true">↗</b>
+                  </Link>
+                </div>
+              </section>
+            </div>
+
+            <div className={styles.bottomLinks}>
+              <Link href="/#privacy" onClick={() => setOpen(false)}>
+                {language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}
+              </Link>
+              <Link href="/#about" onClick={() => setOpen(false)}>
+                {language === "th" ? "เกี่ยวกับ" : "About"}
+              </Link>
+              <span>Local-first · No account</span>
+            </div>
           </div>
         </div>
       )}

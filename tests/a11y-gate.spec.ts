@@ -19,7 +19,7 @@ async function makePdf() {
 test("Home and grouped menu pass automated accessibility checks", async ({ page }) => {
   await page.goto("/");
   await expectAccessible(page);
-  await page.getByRole("button", { name: "Open tools menu" }).click();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
   await expect(page.getByTestId("navigation-dropdown")).toBeVisible();
   await expectAccessible(page);
 });

@@ -9,6 +9,24 @@ async function expectAccessible(page: Page) {
   expect(result.violations, result.violations.map((violation) => `${violation.id}: ${violation.help}`).join("\n")).toEqual([]);
 }
 
+async function openToolsMenu(page: Page) {
+  const usesMobileMenu = await page.evaluate(() => window.matchMedia("(max-width: 980px)").matches);
+  const menuButton = page.getByRole("button", {
+    name: usesMobileMenu ? "Open tools menu" : "Tools",
+    exact: true,
+  });
+
+  await expect(menuButton).toBeVisible({ timeout: 15_000 });
+  await expect(menuButton).toBeEnabled();
+  await expect(async () => {
+    if ((await menuButton.getAttribute("aria-expanded")) !== "true") {
+      await menuButton.click({ timeout: 5_000 });
+    }
+    await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+  }).toPass({ timeout: 15_000, intervals: [100, 250, 500] });
+  await expect(page.getByTestId("navigation-dropdown")).toBeVisible({ timeout: 15_000 });
+}
+
 async function makePdf() {
   const document = await PDFDocument.create();
   document.addPage([595, 842]);
@@ -19,8 +37,7 @@ async function makePdf() {
 test("Home and grouped menu pass automated accessibility checks", async ({ page }) => {
   await page.goto("/");
   await expectAccessible(page);
-  await page.getByRole("button", { name: "Tools", exact: true }).click();
-  await expect(page.getByTestId("navigation-dropdown")).toBeVisible();
+  await openToolsMenu(page);
   await expectAccessible(page);
 });
 

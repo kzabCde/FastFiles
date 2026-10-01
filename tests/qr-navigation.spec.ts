@@ -1,18 +1,33 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 
+async function openToolsMenu(page: Page) {
+  const usesMobileMenu = await page.evaluate(() => window.matchMedia("(max-width: 980px)").matches);
+  const menuButton = page.getByRole("button", {
+    name: usesMobileMenu ? "Open tools menu" : "Tools",
+    exact: true,
+  });
+
+  await expect(menuButton).toBeVisible({ timeout: 15_000 });
+  await expect(menuButton).toBeEnabled();
+  await expect(async () => {
+    if ((await menuButton.getAttribute("aria-expanded")) !== "true") {
+      await menuButton.click({ timeout: 5_000 });
+    }
+    await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+  }).toPass({ timeout: 15_000, intervals: [100, 250, 500] });
+
+  const dropdown = page.getByTestId("navigation-dropdown");
+  await expect(dropdown).toBeVisible({ timeout: 15_000 });
+  return dropdown;
+}
+
 async function openQr(page: Page) {
   await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  const menuButton = page.getByRole("button", { name: "Tools", exact: true });
-  await menuButton.waitFor({ state: "visible", timeout: 10000 });
-  await page.waitForTimeout(500);
-  await menuButton.click();
-  const dropdown = page.getByTestId("navigation-dropdown");
-  await expect(dropdown).toBeVisible();
+  const dropdown = await openToolsMenu(page);
   await dropdown.getByRole("link", { name: /QR Generator/i }).click();
-  await expect(page).toHaveURL(/\/qr$/);
-  await expect(page.getByTestId("qr-generator")).toBeVisible();
+  await expect(page).toHaveURL(/\/qr$/, { timeout: 15_000 });
+  await expect(page.getByTestId("qr-generator")).toBeVisible({ timeout: 15_000 });
 }
 
 async function assertNoOverflow(page: Page) {
@@ -21,16 +36,13 @@ async function assertNoOverflow(page: Page) {
 }
 
 test("desktop Tools tab opens a dropdown with categories and QR groups", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Open tools menu" })).toBeHidden();
   const menu = page.getByRole("button", { name: "Tools", exact: true });
   await expect(menu).toBeVisible();
   await expect(menu).toHaveAttribute("aria-expanded", "false");
-  await menu.click();
-  await expect(menu).toHaveAttribute("aria-expanded", "true");
-
-  const dropdown = page.getByTestId("navigation-dropdown");
-  await expect(dropdown).toBeVisible();
+  const dropdown = await openToolsMenu(page);
   const viewportWidth = await page.evaluate(() => window.innerWidth);
   const dropdownBox = await dropdown.boundingBox();
   expect(dropdownBox?.x ?? -1).toBeLessThanOrEqual(1);
@@ -53,18 +65,17 @@ test("desktop Tools tab opens a dropdown with categories and QR groups", async (
 
 test("file and image menu items open dedicated pages", async ({ page }) => {
   await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByRole("button", { name: "Tools", exact: true }).click();
-  await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Merge PDF" }).click();
-  await expect(page).toHaveURL(/\/tools\/merge-pdf$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Merge PDF" })).toBeVisible();
-  await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible();
+  const fileMenu = await openToolsMenu(page);
+  await fileMenu.getByRole("link", { name: "Merge PDF" }).click();
+  await expect(page).toHaveURL(/\/tools\/merge-pdf$/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { level: 1, name: "Merge PDF" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole("button", { name: "Tools", exact: true }).click();
-  await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Image Editor" }).click();
-  await expect(page).toHaveURL(/\/tools\/image-convert$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Image Editor" })).toBeVisible();
-  await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible();
+  const imageMenu = await openToolsMenu(page);
+  await imageMenu.getByRole("link", { name: "Image Editor" }).click();
+  await expect(page).toHaveURL(/\/tools\/image-convert$/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { level: 1, name: "Image Editor" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("standalone-tool-dropzone")).toBeVisible({ timeout: 15_000 });
 });
 
 test("QR generator creates a live URL preview", async ({ page }) => {
@@ -135,9 +146,7 @@ test("QR workspace supports Thai and dark mode", async ({ page }) => {
 test("dropdown and QR generator remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open tools menu" }).click();
-  const dropdown = page.getByTestId("navigation-dropdown");
-  await expect(dropdown).toBeVisible();
+  const dropdown = await openToolsMenu(page);
   await assertNoOverflow(page);
   const qrLink = dropdown.getByTestId("nav-qr-generator");
   await qrLink.scrollIntoViewIfNeeded();

@@ -10,9 +10,10 @@ test("@visual stable desktop surfaces", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveScreenshot("home-desktop.png", { fullPage: true, animations: "disabled" });
   const menuButton = page.getByRole("button", { name: "Tools", exact: true });
-  await menuButton.waitFor({ state: "visible", timeout: 10000 });
-  await page.waitForTimeout(500);
-  await menuButton.click();
+  await expect(menuButton).toBeVisible({ timeout: 15_000 });
+  await menuButton.click({ timeout: 15_000 });
+  await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
+  await expect(page.getByTestId("navigation-dropdown")).toBeVisible({ timeout: 15_000 });
   await expect(page).toHaveScreenshot("menu-desktop.png", { fullPage: true, animations: "disabled" });
   await page.goto("/qr");
   await expect(page.getByTestId("qr-preview")).toBeVisible();
@@ -44,8 +45,9 @@ test("@visual stable mobile home and menu", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveScreenshot("home-mobile.png", { fullPage: true, animations: "disabled" });
   const menuButton = page.getByRole("button", { name: "Open tools menu" });
-  await menuButton.waitFor({ state: "visible", timeout: 10000 });
-  await page.waitForTimeout(500);
-  await menuButton.click();
+  await expect(menuButton).toBeVisible({ timeout: 15_000 });
+  await menuButton.click({ timeout: 15_000 });
+  await expect(menuButton).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
+  await expect(page.getByTestId("navigation-dropdown")).toBeVisible({ timeout: 15_000 });
   await expect(page).toHaveScreenshot("menu-mobile.png", { fullPage: true, animations: "disabled" });
 });

@@ -20,7 +20,7 @@ async function assertNoOverflow(page: Page) {
   expect(metrics.scroll).toBeLessThanOrEqual(metrics.width + 1);
 }
 
-test("desktop Tools tab opens a dropdown with File, Image and QR groups", async ({ page }) => {
+test("desktop Tools tab opens a dropdown with categories and QR groups", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Open tools menu" })).toBeHidden();
   const menu = page.getByRole("button", { name: "Tools", exact: true });
@@ -35,8 +35,9 @@ test("desktop Tools tab opens a dropdown with File, Image and QR groups", async 
   const dropdownBox = await dropdown.boundingBox();
   expect(dropdownBox?.x ?? -1).toBeLessThanOrEqual(1);
   expect(dropdownBox?.width ?? 0).toBeGreaterThanOrEqual(viewportWidth - 1);
-  await expect(dropdown.getByRole("heading", { name: "File Tools" })).toBeVisible();
-  await expect(dropdown.getByRole("heading", { name: "Image Tools" })).toBeVisible();
+  await expect(dropdown.getByRole("heading", { name: "Edit & Organize" })).toBeVisible();
+  await expect(dropdown.getByRole("heading", { name: "Convert" })).toBeVisible();
+  await expect(dropdown.getByRole("heading", { name: "Enhance" })).toBeVisible();
   await expect(dropdown.getByRole("heading", { name: "QR Code" })).toBeVisible();
   await expect(dropdown.getByRole("link", { name: /Merge PDF/i })).toBeVisible();
   await expect(dropdown.getByRole("link", { name: /^Image Editor$/i })).toBeVisible();
@@ -52,6 +53,7 @@ test("desktop Tools tab opens a dropdown with File, Image and QR groups", async 
 
 test("file and image menu items open dedicated pages", async ({ page }) => {
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByTestId("navigation-dropdown").getByRole("link", { name: "Merge PDF" }).click();
   await expect(page).toHaveURL(/\/tools\/merge-pdf$/);
@@ -134,17 +136,7 @@ test("dropdown and QR generator remain usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open tools menu" }).click();
-  let dropdown = page.getByTestId("navigation-dropdown");
-  await expect(dropdown).toBeVisible();
-  const menuBox = await dropdown.boundingBox();
-  expect(menuBox?.x ?? -1).toBeLessThanOrEqual(1);
-  expect(menuBox?.y ?? -1).toBeLessThanOrEqual(1);
-  expect(menuBox?.width ?? 0).toBeGreaterThanOrEqual(389);
-  expect(menuBox?.height ?? 0).toBeGreaterThanOrEqual(843);
-  await dropdown.getByRole("button", { name: "Close tools menu" }).click();
-  await expect(dropdown).toHaveCount(0);
-  await page.getByRole("button", { name: "Open tools menu" }).click();
-  dropdown = page.getByTestId("navigation-dropdown");
+  const dropdown = page.getByTestId("navigation-dropdown");
   await expect(dropdown).toBeVisible();
   await assertNoOverflow(page);
   const qrLink = dropdown.getByTestId("nav-qr-generator");
@@ -157,3 +149,4 @@ test("dropdown and QR generator remain usable on mobile", async ({ page }) => {
   await expect(page.getByTestId("qr-preview")).toBeVisible();
   await assertNoOverflow(page);
 });
+

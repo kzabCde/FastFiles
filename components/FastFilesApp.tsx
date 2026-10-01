@@ -239,7 +239,9 @@ export default function FastFilesApp() {
       <header className="site-header">
         <div className="header-inner">
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
-            <NavigationMenu variant="mobile" language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} />
+            <div className="mobile-only">
+              <NavigationMenu variant="mobile" language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} />
+            </div>
             <button className="brand" onClick={reset} aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></button>
           </div>
           <nav><NavigationMenu variant="desktop" language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} /><a href="#privacy">{t.privacy}</a><a href="#about">{t.about}</a></nav>

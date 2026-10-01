@@ -149,7 +149,9 @@ export default function StandaloneToolPage({ tool }: Props) {
       <header className="site-header">
         <div className="header-inner">
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
-            <NavigationMenu variant="mobile" language={language} />
+            <div className="mobile-only">
+              <NavigationMenu variant="mobile" language={language} />
+            </div>
             <Link className="brand" href="/" aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></Link>
           </div>
           <nav><Link href="/">Home</Link><NavigationMenu variant="desktop" language={language} /><Link href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link><Link href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</Link></nav>

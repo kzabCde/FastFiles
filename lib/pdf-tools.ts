@@ -72,6 +72,25 @@ export type PdfWatermarkOptions = {
   customPages?: string;
 };
 
+export type PdfRotationAngle = 90 | 180 | 270;
+export type PdfRotationScope = "all" | "odd" | "even" | "custom";
+
+export type PdfRotateOptions = {
+  angle: PdfRotationAngle;
+  scope: PdfRotationScope;
+  customPages?: string;
+};
+
+export type PdfSignatureOptions = {
+  imageData: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pages: "all" | "last" | "custom";
+  customPages?: string;
+};
+
 async function loadPdf(file: File) {
   try {
     return await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: false });
@@ -141,6 +160,23 @@ export async function organizePdf(file: File, pages: PdfPageState[]) {
   if (!output.getPageCount()) throw new Error("A PDF needs at least one page.");
   const bytes = await output.save({ useObjectStreams: true });
   return bytesToBlob(bytes, "application/pdf");
+}
+
+export async function rotatePdfPages(file: File, options: PdfRotateOptions) {
+  const pdf = await loadPdf(file);
+  const total = pdf.getPageCount();
+  const custom = options.scope === "custom" ? new Set(parsePageRange(options.customPages ?? "", total)) : null;
+  if (options.scope === "custom" && !custom?.size) throw new Error("Enter a valid page range such as 1-3, 6, 9-12.");
+
+  pdf.getPages().forEach((page, index) => {
+    if (options.scope === "odd" && (index + 1) % 2 === 0) return;
+    if (options.scope === "even" && (index + 1) % 2 !== 0) return;
+    if (custom && !custom.has(index)) return;
+    const existing = page.getRotation().angle || 0;
+    page.setRotation(degrees((existing + options.angle) % 360));
+  });
+
+  return bytesToBlob(await pdf.save({ useObjectStreams: true }), "application/pdf");
 }
 
 export async function watermarkPdf(file: File, options: PdfWatermarkOptions) {
@@ -336,6 +372,8 @@ export async function compressScannedPdf(
         const jpeg = await new Promise<Blob>((resolve, reject) => {
           canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("Unable to encode a compressed PDF page."))), "image/jpeg", settings.quality);
         });
+        canvas.width = 0;
+        canvas.height = 0;
         const image = await output.embedJpg(await jpeg.arrayBuffer());
         const outputPage = output.addPage([base.width, base.height]);
         outputPage.drawImage(image, { x: 0, y: 0, width: base.width, height: base.height });
@@ -553,4 +591,35 @@ function formatDate(value?: Date) {
 
 function yieldToBrowser() {
   return new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+}
+
+export async function signPdf(file: File, options: PdfSignatureOptions): Promise<Blob> {
+  const pdf = await loadPdf(file);
+  const pngBytes = Uint8Array.from(atob(options.imageData.split(",")[1] || options.imageData), (c) => c.charCodeAt(0));
+  const signatureImage = await pdf.embedPng(pngBytes);
+  const pages = pdf.getPages();
+  const totalPages = pages.length;
+
+  let targetIndices: number[];
+  if (options.pages === "last") {
+    targetIndices = [totalPages - 1];
+  } else if (options.pages === "custom" && options.customPages) {
+    targetIndices = parsePageRange(options.customPages, totalPages).map((n) => n - 1);
+  } else {
+    targetIndices = Array.from({ length: totalPages }, (_, i) => i);
+  }
+
+  for (const index of targetIndices) {
+    const page = pages[index];
+    if (!page) continue;
+    const { width: pageW, height: pageH } = page.getSize();
+    const drawW = options.width * pageW;
+    const drawH = options.height * pageH;
+    const drawX = options.x * pageW;
+    const drawY = pageH - (options.y * pageH) - drawH;
+    page.drawImage(signatureImage, { x: drawX, y: drawY, width: drawW, height: drawH });
+  }
+
+  const bytes = await pdf.save();
+  return new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
 }

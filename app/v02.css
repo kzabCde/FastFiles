@@ -25,7 +25,7 @@
 .queue-status.checking { background:var(--surface-2); color:var(--muted); }
 .remove-file { width:30px; height:30px; border:0; border-radius:9px; background:var(--surface-2); color:var(--muted); font-size:17px; }
 .remove-file:hover { color:var(--danger); }
-.suggestions-head { margin-top:24px; padding-top:22px; border-top:1px solid var(--line); }
+.suggestions-head { margin-top:24px; margin-bottom:16px; padding-top:22px; border-top:1px solid var(--line); }
 .inline-guidance { margin:16px 0 2px; padding:14px 16px; border-radius:13px; background:var(--surface-2); color:var(--muted); font-size:12px; line-height:1.55; }
 .disabled-zone { opacity:.5; pointer-events:none; }
 .workload-warning { margin:18px 0 0; display:flex; justify-content:space-between; gap:20px; align-items:center; padding:16px; border:1px solid color-mix(in srgb, #d59b2d 35%, var(--line)); border-radius:15px; background:color-mix(in srgb, #d59b2d 7%, var(--surface)); }
@@ -71,6 +71,7 @@
 .pdf-text-pages article { padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--bg); }
 .pdf-text-pages article > strong { display:block; margin-bottom:10px; color:var(--accent-ink); font-size:10px; text-transform:uppercase; }
 .pdf-text-pages pre { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--text); font:400 12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.pdf-text-next-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; width:min(1120px,calc(100% - 48px)); margin:16px auto 56px; }
 .preset-row { display:flex; flex-wrap:wrap; gap:6px; }
 .preset-row button { padding:7px 9px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); font-size:9px; }
 .preset-row button.active { border-color:color-mix(in srgb, var(--accent) 65%, var(--line)); background:var(--accent-soft); color:var(--accent-ink); }

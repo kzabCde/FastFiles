@@ -97,6 +97,23 @@ export default function StandaloneToolPage({ tool }: Props) {
     }
   };
 
+  useEffect(() => {
+    if (files.length) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const pasted = [...(event.clipboardData?.files ?? [])].map((file) => {
+        if (file.name === "image.png" || file.name === "Untitled" || !file.name) {
+          const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+          const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
+          return new File([file], `clipboard-${stamp}.${ext}`, { type: file.type });
+        }
+        return file;
+      });
+      if (pasted.length) void acceptFiles(pasted);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [files.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (files.length) {
     return (
       <ToolWorkspace

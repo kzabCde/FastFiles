@@ -21,6 +21,8 @@ import {
   parsePageRange,
   pdfToPngs,
   renderPdfThumbnails,
+  rotatePdfPages,
+  signPdf,
   splitPdfIntoPages,
   updatePdfMetadata,
   watermarkPdf,
@@ -28,6 +30,10 @@ import {
   type PdfMetadata,
   type PdfMetadataPatch,
   type PdfPageState,
+  type PdfRotateOptions,
+  type PdfRotationAngle,
+  type PdfRotationScope,
+  type PdfSignatureOptions,
   type PdfTextPage,
   type PdfWatermarkOptions,
   type RasterPdfCompressionPreset,
@@ -106,7 +112,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
   return (
     <section className="workspace-shell" data-job-status={status}>
       <header className="workspace-head">
-        <button className="text-button" onClick={onBack} disabled={busy}>← {language === "th" ? "เครื่องมือ" : "TOOLS"}</button>
+        <button className="workspace-back" onClick={onBack} disabled={busy} aria-label={language === "th" ? "กลับ" : "Back"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <div><span className="eyebrow">FASTFILES / {tool.short}</span><h1>{title}</h1></div>
         <div className="workspace-head-actions"><button className="chip-button workspace-language" onClick={onToggleLanguage} disabled={busy} aria-label={language === "en" ? "Switch to Thai" : "Switch to English"}>{language === "en" ? "TH" : "EN"}</button><button className="text-button" onClick={onReset} disabled={busy}>{language === "th" ? "ไฟล์ใหม่" : "NEW FILES"}</button></div>
       </header>
@@ -114,10 +120,11 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       {tool.id === "merge-pdf" && <MergeWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "compress-pdf" && <CompressPdfWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "organize-pdf" && <OrganizeWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
+      {tool.id === "rotate-pdf" && <RotateWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "split-pdf" && <SplitWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "page-numbers" && <PageNumbersWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-metadata" && <MetadataWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
-      {tool.id === "pdf-text" && <PdfTextWorkspace file={files[0]} language={language} run={run} update={update} busy={busy} />}
+      {tool.id === "pdf-text" && <PdfTextWorkspace file={files[0]} language={language} run={run} update={update} busy={busy} onReset={onReset} />}
       {tool.id === "images-to-pdf" && <ImagesToPdfWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-to-images" && <PdfToImagesWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (
@@ -125,6 +132,7 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       ) : (
         <LiveImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={resultSetter} busy={busy} />
       ))}
+      {tool.id === "pdf-sign" && <SignWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {(["image-convert", "image-resize", "image-compress"] as string[]).includes(tool.id) && (
         <LiveImageWorkspace files={files} language={language} toolId={tool.id} run={run} update={update} setResult={resultSetter} busy={busy} />
       )}
@@ -305,6 +313,53 @@ function SplitWorkspace({ file, language, run, update, setResult, busy }: { file
   return <div className="workspace-grid"><PdfPreview file={file} language={language} /><aside className="action-card"><span className="muted">{pageCount || "—"} {language === "th" ? "หน้า" : "pages"} · {formatBytes(file.size)}</span><label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={range} onChange={(event) => setRange(event.target.value)} placeholder="1-3, 5, 8-10" /></label><p>{language === "th" ? "ดึงหน้าที่ต้องการเป็น PDF เดียว หรือแยกทุกหน้าเป็น ZIP" : "Extract selected pages into one PDF, or split every page into a ZIP."}</p><button className="primary-button" disabled={busy} onClick={extract}>{language === "th" ? "ดึงหน้าที่เลือก" : "EXTRACT RANGE"} ↗</button><button className="secondary-button" disabled={busy} onClick={split}>{language === "th" ? "แยกทุกหน้าเป็น ZIP" : "SPLIT ALL TO ZIP"}</button></aside></div>;
 }
 
+function RotateWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
+  const [angle, setAngle] = useState<PdfRotationAngle>(90);
+  const [scope, setScope] = useState<PdfRotationScope>("all");
+  const [customPages, setCustomPages] = useState("1-3, 6");
+  const [pageCount, setPageCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    getPdfPageCount(file).then((count) => { if (active) setPageCount(count); }).catch(() => { if (active) setPageCount(0); });
+    return () => { active = false; };
+  }, [file]);
+
+  const process = () => run(language === "th" ? "กำลังหมุน PDF" : "ROTATING PDF", 1, async () => {
+    const blob = await rotatePdfPages(file, { angle, scope, customPages });
+    const name = `${file.name.replace(/\.pdf$/i, "")}-rotated.pdf`;
+    downloadBlob(blob, name);
+    setResult(makeSingleResult(language === "th" ? "หมุน PDF แล้ว" : "PDF ROTATED", file, blob, name));
+  });
+
+  const scopeLabel = scope === "all" ? (language === "th" ? "ทุกหน้า" : "all pages") : scope === "odd" ? (language === "th" ? "หน้าคี่" : "odd pages") : scope === "even" ? (language === "th" ? "หน้าคู่" : "even pages") : (language === "th" ? "หน้าที่เลือก" : "selected pages");
+
+  return (
+    <div className="workspace-grid">
+      <div className="preview-document page-number-preview">
+        <span className="doc-mark">PDF</span>
+        <h2>{file.name}</h2>
+        <span className="muted">{pageCount || "—"} {language === "th" ? "หน้า" : "pages"} · {formatBytes(file.size)}</span>
+        <div style={{ fontSize: 72, lineHeight: 1, transform: `rotate(${angle}deg)`, transition: "transform 0.35s ease", margin: "24px 0" }} aria-hidden="true">📄</div>
+        <span className="muted">{angle}° · {scopeLabel}</span>
+      </div>
+      <aside className="action-card">
+        <h2>{language === "th" ? "หมุนหน้า PDF" : "Rotate PDF pages"}</h2>
+        <span className="control-section-title">{language === "th" ? "มุมหมุน (ตามเข็มนาฬิกา)" : "ROTATION ANGLE (CLOCKWISE)"}</span>
+        <div className="preset-row">
+          <button type="button" className={angle === 90 ? "active" : ""} aria-pressed={angle === 90} onClick={() => setAngle(90)}>90° →</button>
+          <button type="button" className={angle === 180 ? "active" : ""} aria-pressed={angle === 180} onClick={() => setAngle(180)}>180°</button>
+          <button type="button" className={angle === 270 ? "active" : ""} aria-pressed={angle === 270} onClick={() => setAngle(270)}>270° ←</button>
+        </div>
+        <label>{language === "th" ? "ใช้กับหน้า" : "APPLY TO"}<select value={scope} onChange={(event) => setScope(event.target.value as PdfRotationScope)}><option value="all">{language === "th" ? "ทุกหน้า" : "All pages"}</option><option value="odd">{language === "th" ? "หน้าคี่" : "Odd pages"}</option><option value="even">{language === "th" ? "หน้าคู่" : "Even pages"}</option><option value="custom">{language === "th" ? "กำหนดเอง" : "Custom range"}</option></select></label>
+        {scope === "custom" && <label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={customPages} onChange={(event) => setCustomPages(event.target.value)} placeholder="1-3, 6, 9-12" /></label>}
+        <p>{language === "th" ? "หมุนตามเข็มนาฬิกา ไม่เปลี่ยนเนื้อหาหรือขนาดไฟล์" : "Clockwise rotation. Content and file size remain unchanged."}</p>
+        <button className="primary-button" disabled={busy || !pageCount} onClick={() => void process()}>{language === "th" ? "หมุนและดาวน์โหลด" : "ROTATE & DOWNLOAD"} ↗</button>
+      </aside>
+    </div>
+  );
+}
+
 function PageNumbersWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
   const [position, setPosition] = useState<PageNumberPosition>("bottom-center");
   const [startNumber, setStartNumber] = useState(1);
@@ -380,7 +435,7 @@ function MetadataWorkspace({ file, language, run, setResult, busy }: { file: Fil
   );
 }
 
-function PdfTextWorkspace({ file, language, run, update, busy }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; busy: boolean }) {
+function PdfTextWorkspace({ file, language, run, update, busy, onReset }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; busy: boolean; onReset: () => void }) {
   const [pageCount, setPageCount] = useState(0);
   const [range, setRange] = useState("");
   const [pages, setPages] = useState<PdfTextPage[]>([]);
@@ -452,6 +507,13 @@ function PdfTextWorkspace({ file, language, run, update, busy }: { file: File; l
           )}
         </section>
       )}
+
+      {pages.length > 0 && (
+        <div className="pdf-text-next-actions">
+          <button className="secondary-button" onClick={() => { setPages([]); setCopyState("idle"); }}>{language === "th" ? "ดึงข้อความอีกครั้ง" : "EXTRACT AGAIN"}</button>
+          <button className="text-button" onClick={onReset}>{language === "th" ? "เลือกไฟล์ใหม่" : "NEW FILES"}</button>
+        </div>
+      )}
     </>
   );
 }
@@ -478,11 +540,230 @@ function PdfWatermarkWorkspace({ file, language, run, setResult, busy }: { file:
   const [pages, setPages] = useState<PdfWatermarkOptions["pages"]>("all");
   const [customPages, setCustomPages] = useState("1-3, 6");
   const positions: PdfWatermarkOptions["position"][] = ["top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right"];
+
+  const positionToGrid: Record<string, string> = {
+    "top-left": "1 / 1", "top-center": "1 / 2", "top-right": "1 / 3",
+    "center-left": "2 / 1", "center": "2 / 2", "center-right": "2 / 3",
+    "bottom-left": "3 / 1", "bottom-center": "3 / 2", "bottom-right": "3 / 3",
+  };
+
   const process = () => run("WATERMARKING PDF", 1, async () => {
     const blob = await watermarkPdf(file, { text, opacity: opacity / 100, fontSize, rotation, color, position, pages, customPages });
     const name = `${file.name.replace(/\.pdf$/i, "")}-watermarked.pdf`;
     downloadBlob(blob, name);
     setResult(makeSingleResult(language === "th" ? "ใส่ลายน้ำแล้ว" : "WATERMARK APPLIED", file, blob, name));
   });
-  return <div className="workspace-grid"><PdfPreview file={file} language={language} /><aside className="action-card pdf-watermark-controls"><label>{language === "th" ? "ข้อความลายน้ำ" : "WATERMARK TEXT"}<input value={text} onChange={(event) => setText(event.target.value)} /></label><div className="field-pair"><label>{language === "th" ? "ขนาด" : "FONT SIZE"}<input type="number" min="8" max="144" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label><label>{language === "th" ? "สี" : "COLOR"}<input type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label></div><label>{language === "th" ? "ความทึบ" : "OPACITY"} · {opacity}%<input type="range" min="5" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label><label>{language === "th" ? "การหมุน" : "ROTATION"} · {rotation}°<input type="range" min="-180" max="180" value={rotation} onChange={(event) => setRotation(Number(event.target.value))} /></label><span className="control-section-title">{language === "th" ? "ตำแหน่ง" : "POSITION"}</span><div className="watermark-position-grid">{positions.map((value) => <button type="button" key={value} className={position === value ? "active" : ""} aria-label={value} onClick={() => setPosition(value)}>{value.replace(/top|bottom|center/g, (part) => part === "top" ? "↑" : part === "bottom" ? "↓" : "•")}</button>)}</div><label>{language === "th" ? "ใช้กับหน้า" : "PAGES"}<select value={pages} onChange={(event) => setPages(event.target.value as PdfWatermarkOptions["pages"])}><option value="all">{language === "th" ? "ทั้งหมด" : "All"}</option><option value="odd">{language === "th" ? "หน้าคี่" : "Odd"}</option><option value="even">{language === "th" ? "หน้าคู่" : "Even"}</option><option value="custom">{language === "th" ? "กำหนดเอง" : "Custom"}</option></select></label>{pages === "custom" && <label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={customPages} onChange={(event) => setCustomPages(event.target.value)} placeholder="1-3, 6, 9-12" /></label>}<p>{language === "th" ? "ประมวลผลบนอุปกรณ์และตรวจสอบช่วงหน้าก่อนส่งออก" : "Processed on-device with page-range validation before export."}</p><button className="primary-button" disabled={busy || !text.trim()} onClick={process}>{language === "th" ? "ใส่ลายน้ำ" : "APPLY & DOWNLOAD"} ↗</button></aside></div>;
+
+  const previewScale = Math.min(1, 28 / Math.max(8, fontSize));
+
+  return (
+    <div className="workspace-grid">
+      <div style={{ position: "relative" }}>
+        <PdfPreview file={file} language={language} />
+        {text.trim() && (
+          <div className="watermark-preview-overlay">
+            <div className="wm-label" style={{
+              gridArea: positionToGrid[position],
+              fontSize: `${Math.max(10, fontSize * previewScale)}px`,
+              color: color,
+              opacity: opacity / 100,
+              transform: `rotate(${rotation}deg)`,
+              padding: 8,
+            }}>
+              {text}
+            </div>
+          </div>
+        )}
+      </div>
+      <aside className="action-card pdf-watermark-controls">
+        <label>{language === "th" ? "ข้อความลายน้ำ" : "WATERMARK TEXT"}<input value={text} onChange={(event) => setText(event.target.value)} /></label>
+        <div className="field-pair"><label>{language === "th" ? "ขนาด" : "FONT SIZE"}<input type="number" min="8" max="144" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label><label>{language === "th" ? "สี" : "COLOR"}<input type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label></div>
+        <label>{language === "th" ? "ความทึบ" : "OPACITY"} · {opacity}%<input type="range" min="5" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label>
+        <label>{language === "th" ? "การหมุน" : "ROTATION"} · {rotation}°<input type="range" min="-180" max="180" value={rotation} onChange={(event) => setRotation(Number(event.target.value))} /></label>
+        <span className="control-section-title">{language === "th" ? "ตำแหน่ง" : "POSITION"}</span>
+        <div className="watermark-position-grid">{positions.map((value) => <button type="button" key={value} className={position === value ? "active" : ""} aria-label={value} onClick={() => setPosition(value)}>{value.replace(/top|bottom|center/g, (part) => part === "top" ? "↑" : part === "bottom" ? "↓" : "•")}</button>)}</div>
+        <label>{language === "th" ? "ใช้กับหน้า" : "PAGES"}<select value={pages} onChange={(event) => setPages(event.target.value as PdfWatermarkOptions["pages"])}><option value="all">{language === "th" ? "ทั้งหมด" : "All"}</option><option value="odd">{language === "th" ? "หน้าคี่" : "Odd"}</option><option value="even">{language === "th" ? "หน้าคู่" : "Even"}</option><option value="custom">{language === "th" ? "กำหนดเอง" : "Custom"}</option></select></label>
+        {pages === "custom" && <label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={customPages} onChange={(event) => setCustomPages(event.target.value)} placeholder="1-3, 6, 9-12" /></label>}
+        <p>{language === "th" ? "ประมวลผลบนอุปกรณ์และตรวจสอบช่วงหน้าก่อนส่งออก" : "Processed on-device with page-range validation before export."}</p>
+        <button className="primary-button" disabled={busy || !text.trim()} onClick={process}>{language === "th" ? "ใส่ลายน้ำ" : "APPLY & DOWNLOAD"}</button>
+      </aside>
+    </div>
+  );
+}
+
+type SignMode = "draw" | "type" | "upload";
+const SIG_COLORS = ["#000000", "#1a3a8a", "#991b1b"];
+
+function SignWorkspace({ file, language, run, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
+  const [mode, setMode] = useState<SignMode>("draw");
+  const [sigColor, setSigColor] = useState("#000000");
+  const [sigSize, setSigSize] = useState(20);
+  const [sigData, setSigData] = useState<string | null>(null);
+  const [typedName, setTypedName] = useState("");
+  const [pages, setPages] = useState<PdfSignatureOptions["pages"]>("last");
+  const [customPages, setCustomPages] = useState("");
+  const [sigX, setSigX] = useState(0.55);
+  const [sigY, setSigY] = useState(0.82);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawing = useRef(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const startDraw = (e: React.PointerEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    isDrawing.current = true;
+    canvas.setPointerCapture(e.pointerId);
+    const ctx = canvas.getContext("2d")!;
+    const rect = canvas.getBoundingClientRect();
+    ctx.strokeStyle = sigColor;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo((e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height));
+  };
+  const moveDraw = (e: React.PointerEvent) => {
+    if (!isDrawing.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo((e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height));
+    ctx.stroke();
+  };
+  const endDraw = () => {
+    isDrawing.current = false;
+    if (canvasRef.current) setSigData(canvasRef.current.toDataURL("image/png"));
+  };
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setSigData(null);
+  };
+
+  useEffect(() => {
+    if (mode !== "type" || !typedName.trim()) { if (mode === "type") setSigData(null); return; }
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 160;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, 600, 160);
+    ctx.fillStyle = sigColor;
+    ctx.font = "italic 52px 'Georgia', 'Times New Roman', serif";
+    ctx.textBaseline = "middle";
+    ctx.fillText(typedName, 20, 80);
+    setSigData(canvas.toDataURL("image/png"));
+  }, [typedName, sigColor, mode]);
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFile = e.target.files?.[0];
+    if (!uploadedFile) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < data.data.length; i += 4) {
+          if (data.data[i] > 220 && data.data[i + 1] > 220 && data.data[i + 2] > 220) data.data[i + 3] = 0;
+        }
+        ctx.putImageData(data, 0, 0);
+        setSigData(canvas.toDataURL("image/png"));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(uploadedFile);
+  };
+
+  const sigWidthRatio = sigSize / 100;
+  const sigHeightRatio = sigWidthRatio * 0.35;
+
+  const process = () => run(language === "th" ? "กำลังเซ็นเอกสาร" : "SIGNING PDF", 1, async () => {
+    if (!sigData) throw new Error(language === "th" ? "กรุณาวาดหรือพิมพ์ลายเซ็นก่อน" : "Please draw or type a signature first.");
+    const blob = await signPdf(file, { imageData: sigData, x: sigX, y: sigY, width: sigWidthRatio, height: sigHeightRatio, pages, customPages });
+    const name = `${file.name.replace(/\.pdf$/i, "")}-signed.pdf`;
+    downloadBlob(blob, name);
+    setResult(makeSingleResult(language === "th" ? "เซ็นเอกสารแล้ว" : "PDF SIGNED", file, blob, name));
+  });
+
+  const modeLabels: Record<SignMode, [string, string]> = {
+    draw: ["✏️ วาด", "✏️ Draw"],
+    type: ["⌨️ พิมพ์", "⌨️ Type"],
+    upload: ["📷 อัปโหลด", "📷 Upload"],
+  };
+
+  return (
+    <div className="workspace-grid">
+      <div style={{ position: "relative" }}>
+        <PdfPreview file={file} language={language} />
+        {sigData && (
+          <div className="sign-preview-overlay">
+            <img
+              src={sigData}
+              alt="Signature"
+              className="sign-preview-img"
+              style={{
+                position: "absolute",
+                left: `${sigX * 100}%`,
+                top: `${sigY * 100}%`,
+                width: `${sigSize}%`,
+                opacity: 0.85,
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+        )}
+      </div>
+      <aside className="action-card sign-controls">
+        <div className="sign-mode-tabs">
+          {(["draw", "type", "upload"] as SignMode[]).map((m) => (
+            <button key={m} type="button" className={mode === m ? "active" : ""} onClick={() => { setMode(m); setSigData(null); if (m === "draw") { setTimeout(() => clearCanvas(), 0); } }}>{language === "th" ? modeLabels[m][0] : modeLabels[m][1]}</button>
+          ))}
+        </div>
+
+        {mode === "draw" && (
+          <div className="sign-draw-area">
+            <canvas ref={canvasRef} width={500} height={140} className="sign-canvas" onPointerDown={startDraw} onPointerMove={moveDraw} onPointerUp={endDraw} onPointerLeave={endDraw} />
+            <div className="sign-draw-footer">
+              <div className="sign-colors">{SIG_COLORS.map((c) => <button key={c} type="button" className={sigColor === c ? "active" : ""} style={{ background: c }} onClick={() => setSigColor(c)} aria-label={c} />)}</div>
+              <button type="button" className="text-button" onClick={clearCanvas}>{language === "th" ? "ล้าง" : "Clear"}</button>
+            </div>
+          </div>
+        )}
+
+        {mode === "type" && (
+          <div className="sign-type-area">
+            <input value={typedName} onChange={(e) => setTypedName(e.target.value)} placeholder={language === "th" ? "พิมพ์ชื่อของคุณ" : "Type your name"} className="sign-type-input" style={{ fontStyle: "italic", fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 28, color: sigColor }} />
+            <div className="sign-colors">{SIG_COLORS.map((c) => <button key={c} type="button" className={sigColor === c ? "active" : ""} style={{ background: c }} onClick={() => setSigColor(c)} aria-label={c} />)}</div>
+          </div>
+        )}
+
+        {mode === "upload" && (
+          <div className="sign-upload-area">
+            <input ref={uploadRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={handleUpload} />
+            <button type="button" className="sign-upload-btn" onClick={() => uploadRef.current?.click()}>
+              {sigData ? <img src={sigData} alt="Uploaded" style={{ maxHeight: 80 }} /> : (language === "th" ? "📷 เลือกรูปลายเซ็น" : "📷 Choose signature image")}
+            </button>
+            <small className="muted">{language === "th" ? "พื้นหลังขาวจะถูกลบอัตโนมัติ" : "White backgrounds are automatically removed"}</small>
+          </div>
+        )}
+
+        <label>{language === "th" ? "ขนาด" : "SIZE"} · {sigSize}%<input type="range" min="5" max="50" value={sigSize} onChange={(e) => setSigSize(Number(e.target.value))} /></label>
+        <div className="field-pair">
+          <label>{language === "th" ? "ตำแหน่ง X" : "X POS"}<input type="range" min="0" max="100" value={Math.round(sigX * 100)} onChange={(e) => setSigX(Number(e.target.value) / 100)} /></label>
+          <label>{language === "th" ? "ตำแหน่ง Y" : "Y POS"}<input type="range" min="0" max="100" value={Math.round(sigY * 100)} onChange={(e) => setSigY(Number(e.target.value) / 100)} /></label>
+        </div>
+        <label>{language === "th" ? "ใช้กับหน้า" : "PAGES"}<select value={pages} onChange={(e) => setPages(e.target.value as PdfSignatureOptions["pages"])}><option value="last">{language === "th" ? "หน้าสุดท้าย" : "Last page"}</option><option value="all">{language === "th" ? "ทั้งหมด" : "All"}</option><option value="custom">{language === "th" ? "กำหนดเอง" : "Custom"}</option></select></label>
+        {pages === "custom" && <label>{language === "th" ? "ช่วงหน้า" : "PAGE RANGE"}<input value={customPages} onChange={(e) => setCustomPages(e.target.value)} placeholder="1-3, 6" /></label>}
+        <p>{language === "th" ? "ลายเซ็นจะถูกฝังลงใน PDF โดยตรง ประมวลผลบนอุปกรณ์" : "Signature is embedded directly into the PDF. Processed on-device."}</p>
+        <button className="primary-button" disabled={busy || !sigData} onClick={process}>{language === "th" ? "เซ็น & ดาวน์โหลด" : "SIGN & DOWNLOAD"}</button>
+      </aside>
+    </div>
+  );
 }

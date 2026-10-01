@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TOOLS, type ToolDefinition } from "@/lib/tools";
+import { TOOLS, TOOL_CATEGORIES, type ToolDefinition } from "@/lib/tools";
 import styles from "./NavigationMenu.module.css";
 
 type Language = "en" | "th";
@@ -14,31 +15,31 @@ type Props = {
   onOpenQr?: () => void;
 };
 
-const fileToolIds = new Set(["merge-pdf", "compress-pdf", "organize-pdf", "split-pdf", "page-numbers", "pdf-metadata", "pdf-text", "pdf-to-images", "images-to-pdf"]);
-const imageToolIds = new Set(["image-convert", "watermark"]);
-
 export default function NavigationMenu({ language }: Props) {
   const [open, setOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const fileTools = TOOLS.filter((tool) => fileToolIds.has(tool.id));
-  const imageTools = TOOLS.filter((tool) => imageToolIds.has(tool.id));
   const qrLabel = language === "th" ? "สร้าง QR Code" : "QR Generator";
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 980);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setOpen(false); rootRef.current?.querySelector<HTMLButtonElement>("button")?.focus(); return; }
-      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-      const links = [...(rootRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [])];
-      if (!links.length) return;
-      event.preventDefault();
-      const current = links.indexOf(document.activeElement as HTMLAnchorElement);
-      const next = event.key === "Home" ? 0 : event.key === "End" ? links.length - 1 : event.key === "ArrowDown" ? (current + 1 + links.length) % links.length : (current - 1 + links.length) % links.length;
-      links[next]?.focus();
+      if (event.key === "Escape") setOpen(false);
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+      const menu = document.getElementById("fastfiles-tool-menu");
+      const root = rootRef.current;
+      if (root?.contains(event.target as Node)) return;
+      if (menu && !menu.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointerdown", onPointerDown);
@@ -48,55 +49,93 @@ export default function NavigationMenu({ language }: Props) {
     };
   }, [open]);
 
+  const toggleCat = (key: string) => setExpandedCat((prev) => prev === key ? null : key);
+
+  /* --- Desktop mega-menu content (full-width, categories side by side) --- */
+  const desktopDropdown = (
+    <div id="fastfiles-tool-menu" className={styles.megaMenu}>
+      <div className={styles.megaInner}>
+        {TOOL_CATEGORIES.map((cat) => {
+          const catTools = cat.toolIds.map((id) => TOOLS.find((t) => t.id === id)).filter(Boolean) as ToolDefinition[];
+          return (
+            <div key={cat.key} className={styles.megaCol}>
+              <h3 className={styles.megaTitle}>{language === "th" ? cat.th : cat.en}</h3>
+              {catTools.map((tool) => (
+                <a key={tool.id} href={`/tools/${tool.id}`} className={`${styles.megaLink} ${pathname === `/tools/${tool.id}` ? styles.activeLink : ""}`} onClick={() => setOpen(false)}>
+                  {language === "th" ? tool.thai : tool.label}
+                </a>
+              ))}
+            </div>
+          );
+        })}
+        <div className={styles.megaCol}>
+          <h3 className={styles.megaTitle}>QR Code</h3>
+          <a href="/qr" className={`${styles.megaLink} ${pathname === "/qr" ? styles.activeLink : ""}`} onClick={() => setOpen(false)}>{qrLabel}</a>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* --- Mobile accordion dropdown --- */
+  const mobileDropdown = (
+    <div id="fastfiles-tool-menu" className={styles.mobileDropdown}>
+      {TOOL_CATEGORIES.map((cat) => {
+        const catTools = cat.toolIds.map((id) => TOOLS.find((t) => t.id === id)).filter(Boolean) as ToolDefinition[];
+        const isExpanded = expandedCat === cat.key;
+        return (
+          <div key={cat.key} className={styles.catGroup}>
+            <button type="button" className={styles.catHeader} onClick={() => toggleCat(cat.key)} aria-expanded={isExpanded}>
+              <span>{language === "th" ? cat.th : cat.en}</span>
+              <svg className={`${styles.chevron} ${isExpanded ? styles.chevronOpen : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            {isExpanded && (
+              <div className={styles.catLinks}>
+                {catTools.map((tool) => (
+                  <a key={tool.id} href={`/tools/${tool.id}`} className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""} onClick={() => setOpen(false)}>
+                    {language === "th" ? tool.thai : tool.label}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div className={styles.catGroup}>
+        <button type="button" className={styles.catHeader} onClick={() => toggleCat("qr")} aria-expanded={expandedCat === "qr"}>
+          <span>QR Code</span>
+          <svg className={`${styles.chevron} ${expandedCat === "qr" ? styles.chevronOpen : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        {expandedCat === "qr" && (
+          <div className={styles.catLinks}>
+            <a href="/qr" className={pathname === "/qr" ? styles.activeLink : ""} onClick={() => setOpen(false)}>{qrLabel}</a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className={styles.root} ref={rootRef}>
+      {/* Mobile: hamburger */}
       <button
-        className={`${styles.menuButton} ${open ? styles.open : ""}`}
-        aria-label={language === "th" ? "เปิดเมนูเครื่องมือ" : "Open tools menu"}
+        className={styles.menuButton}
+        aria-label={language === "th" ? "เปิดเมนู" : "Open menu"}
         aria-expanded={open}
-        aria-controls="fastfiles-tool-menu"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => { setOpen((v) => !v); setExpandedCat(null); }}
       >
-        <span /><span /><span />
+        {open
+          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        }
       </button>
 
-      {open && (
-        <div id="fastfiles-tool-menu" className={styles.dropdown} data-testid="navigation-dropdown" role="navigation" aria-label={language === "th" ? "เมนู FastFiles" : "FastFiles menu"}>
-          <div className={styles.dropdownHead}>
-            <div><span>FASTFILES</span><strong>{language === "th" ? "เลือกเครื่องมือ" : "Choose a tool"}</strong></div>
-            <small>{language === "th" ? "แต่ละเครื่องมือเปิดเป็นหน้าแยก" : "Each tool opens on its own page"}</small>
-          </div>
+      {/* Desktop: "เครื่องมือ" text trigger */}
+      <button className={styles.desktopTrigger} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {language === "th" ? "เครื่องมือ" : "Tools"}
+        <svg className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
 
-          <div className={styles.sections}>
-            <section className={styles.fileGroup}>
-              <div className={styles.groupTitle}><span className={styles.kicker}>01</span><h2>{language === "th" ? "เครื่องมือไฟล์" : "File Tools"}</h2></div>
-              <div className={styles.links}>{fileTools.map((tool) => {
-                const label = language === "th" ? tool.thai : tool.label;
-                return <a key={`file-${tool.id}`} className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""} aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
-              })}</div>
-            </section>
-
-            <section className={styles.imageGroup}>
-              <div className={styles.groupTitle}><span className={styles.kicker}>02</span><h2>{language === "th" ? "เครื่องมือรูปภาพ" : "Image Tools"}</h2></div>
-              <div className={styles.links}>{imageTools.map((tool) => {
-                const label = language === "th" ? tool.thai : tool.label;
-                return <a key={`image-${tool.id}`} className={pathname === `/tools/${tool.id}` ? styles.activeLink : ""} aria-current={pathname === `/tools/${tool.id}` ? "page" : undefined} aria-label={label} href={`/tools/${tool.id}`} onClick={() => setOpen(false)}><span>{label}</span><b aria-hidden="true">↗</b></a>;
-              })}</div>
-            </section>
-
-            <section className={styles.qrGroup}>
-              <div className={styles.groupTitle}><span className={styles.kicker}>03</span><h2>QR Code</h2></div>
-              <div className={styles.links}><a data-testid="nav-qr-generator" className={pathname === "/qr" ? styles.activeLink : ""} aria-current={pathname === "/qr" ? "page" : undefined} aria-label={qrLabel} href="/qr" onClick={() => setOpen(false)}><span>{qrLabel}</span><b aria-hidden="true">↗</b></a></div>
-            </section>
-          </div>
-
-          <div className={styles.bottomLinks}>
-            <Link href="/#privacy" onClick={() => setOpen(false)}>{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link>
-            <Link href="/#about" onClick={() => setOpen(false)}>{language === "th" ? "เกี่ยวกับ" : "About"}</Link>
-            <span>Local-first · No account</span>
-          </div>
-        </div>
-      )}
+      {open && createPortal(isMobile ? mobileDropdown : desktopDropdown, document.body)}
     </div>
   );
 }

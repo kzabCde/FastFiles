@@ -15,7 +15,10 @@ type Props = { tool: ToolDefinition };
 
 export default function StandaloneToolPage({ tool }: Props) {
   const [language, setLanguage] = useState<Language>("en");
-  const [theme, setTheme] = useState<Theme>("system");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "system";
+    return (window.localStorage.getItem("fastfiles-theme") as Theme | null) ?? "system";
+  });
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
@@ -120,9 +123,10 @@ export default function StandaloneToolPage({ tool }: Props) {
         tool={tool}
         files={files}
         language={language}
-        onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")}
+        onToggleLanguage={() => setLanguage((value) => (value === "en" ? "th" : "en"))}
         onBack={() => setFiles([])}
         onReset={() => setFiles([])}
+        onSelectTool={(t) => { window.location.href = `/tools/${t.id}`; }}
       />
     );
   }
@@ -150,7 +154,20 @@ export default function StandaloneToolPage({ tool }: Props) {
           </div>
           <nav><Link href="/">Home</Link><Link href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link><Link href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</Link></nav>
           <div className="header-actions">
-            <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+            <select
+              aria-label="Theme"
+              value={theme}
+              onChange={(event) => {
+                const next = event.target.value as Theme;
+                document.documentElement.dataset.theme = next;
+                window.localStorage.setItem("fastfiles-theme", next);
+                setTheme(next);
+              }}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
             <button className="chip-button" onClick={() => setLanguage((value) => value === "en" ? "th" : "en")}>{language === "en" ? "TH" : "EN"}</button>
             <button className="top-drop-button" onClick={openPicker} disabled={checking}>{language === "th" ? "เลือกไฟล์" : "Choose files"}<span>+</span></button>
           </div>

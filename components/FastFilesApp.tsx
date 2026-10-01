@@ -88,7 +88,10 @@ export default function FastFilesApp() {
   const [activeQr, setActiveQr] = useState(false);
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState<Language>("en");
-  const [theme, setTheme] = useState<Theme>("system");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "system";
+    return (window.localStorage.getItem("fastfiles-theme") as Theme | null) ?? "system";
+  });
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("");
   const [acceptLargeWorkload, setAcceptLargeWorkload] = useState(false);
@@ -196,11 +199,33 @@ export default function FastFilesApp() {
   };
 
   if (activeQr) {
-    return <QRGenerator language={language} theme={theme} onThemeChange={setTheme} onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")} onBack={() => setActiveQr(false)} />;
+    return (
+      <QRGenerator
+        language={language}
+        theme={theme}
+        onThemeChange={(nextTheme) => {
+          document.documentElement.dataset.theme = nextTheme;
+          window.localStorage.setItem("fastfiles-theme", nextTheme);
+          setTheme(nextTheme);
+        }}
+        onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")}
+        onBack={() => setActiveQr(false)}
+      />
+    );
   }
 
   if (activeTool && files.length) {
-    return <ToolWorkspace tool={activeTool} files={files} language={language} onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")} onBack={() => setActiveTool(null)} onReset={reset} />;
+    return (
+      <ToolWorkspace
+        tool={activeTool}
+        files={files}
+        language={language}
+        onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")}
+        onBack={() => setActiveTool(null)}
+        onReset={reset}
+        onSelectTool={openTool}
+      />
+    );
   }
 
   return (
@@ -219,7 +244,20 @@ export default function FastFilesApp() {
           </div>
           <nav><a href="#tools">{t.tools}</a><a href="#privacy">{t.privacy}</a><a href="#about">{t.about}</a></nav>
           <div className="header-actions">
-            <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+            <select
+              aria-label="Theme"
+              value={theme}
+              onChange={(event) => {
+                const nextTheme = event.target.value as Theme;
+                document.documentElement.dataset.theme = nextTheme;
+                window.localStorage.setItem("fastfiles-theme", nextTheme);
+                setTheme(nextTheme);
+              }}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
             <button className="chip-button" onClick={() => setLanguage((value) => value === "en" ? "th" : "en")}>{language === "en" ? "TH" : "EN"}</button>
             <button className="top-drop-button" onClick={openPicker}>{t.newFiles}<span>+</span></button>
           </div>

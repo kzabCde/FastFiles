@@ -272,7 +272,15 @@ export default function QRGenerator({ language, theme, onBack, onToggleLanguage,
         <button className={styles.back} onClick={onBack}>← {t.back}</button>
         <div className={styles.titleBlock}><span>FASTFILES / QR</span><h1>{t.title}</h1></div>
         <div className={styles.headerActions}>
-          <select aria-label="Theme" value={theme} onChange={(event) => onThemeChange(event.target.value as Theme)}>
+          <select
+            aria-label="Theme"
+            value={theme}
+            onChange={(event) => {
+              const next = event.target.value as Theme;
+              document.documentElement.dataset.theme = next;
+              onThemeChange(next);
+            }}
+          >
             <option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option>
           </select>
           <button onClick={onToggleLanguage} aria-label={language === "en" ? "Switch to Thai" : "Switch to English"}>{language === "en" ? "TH" : "EN"}</button>

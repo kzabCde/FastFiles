@@ -5,30 +5,30 @@
 .menuButton[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
 .menuButton[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
 
-.dropdown { position: absolute; z-index: 120; top: calc(100% + 12px); left: 0; width: min(760px, calc(100vw - 24px)); max-height: min(720px, calc(100vh - 92px)); overflow: auto; padding: 18px; border: 1px solid var(--line-strong); border-radius: 20px; background: color-mix(in srgb, var(--surface) 97%, transparent); color: var(--text); box-shadow: 0 28px 80px rgba(0,0,0,.18); backdrop-filter: blur(18px) saturate(140%); animation: drop .18s ease both; }
+.dropdown { position: absolute; z-index: 120; top: calc(100% + 12px); left: 0; width: min(760px, calc(100vw - 24px)); max-height: min(720px, calc(100vh - 92px)); overflow: auto; padding: 18px; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--surface); color: var(--text); box-shadow: 0 28px 80px rgba(0,0,0,.18); animation: drop .18s ease both; }
 @keyframes drop { from { opacity: 0; transform: translateY(-8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .dropdownHead { min-height: 62px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 2px 2px 16px; border-bottom: 1px solid var(--line); }
 .dropdownHead > div { display: grid; gap: 5px; }
-.dropdownHead span { color: var(--muted); font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
-.dropdownHead strong { font-size: 20px; letter-spacing: -.035em; }
-.dropdownHead small { color: var(--muted); font-size: 9px; text-align: right; }
+.dropdownHead span { color: var(--muted); font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+.dropdownHead strong { font-size: 20px; letter-spacing: -.035em; color: var(--text); }
+.dropdownHead small { color: var(--muted); font-size: 11px; text-align: right; }
 
 .sections { display: grid; grid-template-columns: 1.15fr 1fr .8fr; gap: 18px; padding: 18px 0; }
 .sections section { min-width: 0; display: grid; align-content: start; grid-template-columns: 24px minmax(0, 1fr); gap: 0 8px; padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-2); }
-.kicker { grid-row: 1 / span 2; color: var(--accent-ink); font: 700 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; padding-top: 5px; }
-.sections h2 { margin: 0 0 8px; font-size: 14px; letter-spacing: -.02em; }
+.kicker { grid-row: 1 / span 2; color: var(--accent-ink); font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; padding-top: 5px; }
+.sections h2 { margin: 0 0 8px; font-size: 14px; letter-spacing: -.02em; color: var(--text); }
 .sections section > div { grid-column: 2; display: grid; }
-.sections section > div a { min-height: 38px; padding: 0 2px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); color: var(--text); text-align: left; font-size: 11px; }
+.sections section > div a { min-height: 38px; padding: 0 2px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); color: var(--text); text-align: left; font-size: 12px; }
 .sections section > div a:last-child { border-bottom: 0; }
 .sections section > div a:hover, .sections section > div a:focus-visible { color: var(--accent-ink); }
 .sections section > div a.activeLink { margin-inline:-6px; padding-inline:8px; border-radius:8px; background:var(--accent-soft); color:var(--accent-ink); font-weight:760; }
-.sections section > div a b { color: var(--muted); font-size: 12px; font-weight: 500; }
+.sections section > div a b { color: var(--muted); font-size: 12px; font-weight: 600; }
 .qrGroup { background: var(--accent-soft) !important; border-color: color-mix(in srgb, var(--accent) 40%, var(--line)) !important; }
 .qrGroup > div a { color: var(--accent-ink); font-weight: 750; }
 
 .bottomLinks { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 15px 2px 0; border-top: 1px solid var(--line); }
-.bottomLinks a { font-size: 10px; font-weight: 700; }
-.bottomLinks span { margin-left: auto; color: var(--muted); font-size: 9px; }
+.bottomLinks a { font-size: 11px; font-weight: 700; color: var(--text); }
+.bottomLinks span { margin-left: auto; color: var(--muted); font-size: 11px; }
 
 @media (max-width: 860px) {
   .dropdown { width: min(620px, calc(100vw - 24px)); }

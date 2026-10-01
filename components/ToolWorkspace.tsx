@@ -7,6 +7,7 @@ import { downloadBlob, downloadZip, formatBytes } from "@/lib/download";
 import ResultCenter, { type WorkspaceResult } from "./ResultCenter";
 import LiveImageWorkspace from "./LiveImageWorkspace";
 import PdfPreview from "./PdfPreview";
+import NavigationMenu from "./NavigationMenu";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
@@ -45,6 +46,7 @@ type Props = {
   onBack: () => void;
   onReset: () => void;
   onToggleLanguage: () => void;
+  onSelectTool?: (tool: ToolDefinition) => void;
 };
 
 type JobStatus = "idle" | "ready" | "processing" | "success" | "partial-success" | "failed" | "cancelled";
@@ -74,7 +76,7 @@ function Progress({ value, language }: { value: ProgressState; language: "en" | 
   );
 }
 
-export default function ToolWorkspace({ tool, files, language, onBack, onReset, onToggleLanguage }: Props) {
+export default function ToolWorkspace({ tool, files, language, onBack, onReset, onToggleLanguage, onSelectTool }: Props) {
   const [progress, setProgress] = useState<ProgressState>(null);
   const [error, setError] = useState("");
   const [result, setResult] = useState<WorkspaceResult | null>(null);
@@ -111,7 +113,17 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
   return (
     <section className="workspace-shell" data-job-status={status}>
       <header className="workspace-head">
-        <button className="workspace-back" onClick={onBack} disabled={busy} aria-label={language === "th" ? "กลับ" : "Back"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 8 }}>
+          <NavigationMenu language={language} onSelectTool={onSelectTool} />
+          <button
+            className="text-button workspace-back-tools"
+            onClick={onBack}
+            disabled={busy}
+            aria-label={language === "th" ? "เครื่องมือ" : "Tools"}
+          >
+            ← {language === "th" ? "เครื่องมือ" : "TOOLS"}
+          </button>
+        </div>
         <div><span className="eyebrow">FASTFILES / {tool.short}</span><h1>{title}</h1></div>
         <div className="workspace-head-actions"><button className="chip-button workspace-language" onClick={onToggleLanguage} disabled={busy} aria-label={language === "en" ? "Switch to Thai" : "Switch to English"}>{language === "en" ? "TH" : "EN"}</button><button className="text-button" onClick={onReset} disabled={busy}>{language === "th" ? "ไฟล์ใหม่" : "NEW FILES"}</button></div>
       </header>

@@ -21,7 +21,8 @@
 .queue-status { padding:5px 7px; border-radius:999px; font-size:9px; font-weight:750; white-space:nowrap; }
 .queue-status.ready { background:var(--accent-soft); color:var(--accent-ink); }
 .queue-status.warning { background:rgba(194,138,32,.12); color:#91620f; }
-.queue-status.error { background:color-mix(in srgb, var(--danger) 11%, transparent); color:var(--danger); }
+.queue-status.error { background:color-mix(in srgb, var(--danger) 11%, transparent); color:#991b1b; }
+:root[data-theme="dark"] .queue-status.error { color:#fca5a5; }
 .queue-status.checking { background:var(--surface-2); color:var(--muted); }
 .remove-file { width:30px; height:30px; border:0; border-radius:9px; background:var(--surface-2); color:var(--muted); font-size:17px; }
 .remove-file:hover { color:var(--danger); }

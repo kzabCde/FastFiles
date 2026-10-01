@@ -9,7 +9,10 @@ test("@visual stable desktop surfaces", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
   await expect(page).toHaveScreenshot("home-desktop.png", { fullPage: true, animations: "disabled" });
-  await page.getByRole("button", { name: "Open tools menu" }).click();
+  const menuButton = page.getByRole("button", { name: "Open tools menu" });
+  await menuButton.waitFor({ state: "visible", timeout: 10000 });
+  await page.waitForTimeout(500);
+  await menuButton.click();
   await expect(page).toHaveScreenshot("menu-desktop.png", { fullPage: true, animations: "disabled" });
   await page.goto("/qr");
   await expect(page.getByTestId("qr-preview")).toBeVisible();
@@ -40,6 +43,9 @@ test("@visual stable mobile home and menu", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page).toHaveScreenshot("home-mobile.png", { fullPage: true, animations: "disabled" });
-  await page.getByRole("button", { name: "Open tools menu" }).click();
+  const menuButton = page.getByRole("button", { name: "Open tools menu" });
+  await menuButton.waitFor({ state: "visible", timeout: 10000 });
+  await page.waitForTimeout(500);
+  await menuButton.click();
   await expect(page).toHaveScreenshot("menu-mobile.png", { fullPage: true, animations: "disabled" });
 });

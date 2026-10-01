@@ -3,7 +3,11 @@ import fs from "node:fs/promises";
 
 async function openQr(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open tools menu" }).click();
+  await page.waitForLoadState("networkidle");
+  const menuButton = page.getByRole("button", { name: "Open tools menu" });
+  await menuButton.waitFor({ state: "visible", timeout: 10000 });
+  await page.waitForTimeout(500);
+  await menuButton.click();
   const dropdown = page.getByTestId("navigation-dropdown");
   await expect(dropdown).toBeVisible();
   await dropdown.getByRole("link", { name: /QR Generator/i }).click();

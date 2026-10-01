@@ -214,10 +214,10 @@ export default function FastFilesApp() {
       <header className="site-header">
         <div className="header-inner">
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="mobile-only"><NavigationMenu language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} /></div>
+            <NavigationMenu language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} />
             <button className="brand" onClick={reset} aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></button>
           </div>
-          <nav><NavigationMenu language={language} onSelectTool={openTool} onOpenQr={() => { setActiveTool(null); setActiveQr(true); }} /><a href="#privacy">{t.privacy}</a><a href="#about">{t.about}</a></nav>
+          <nav><a href="#tools">{t.tools}</a><a href="#privacy">{t.privacy}</a><a href="#about">{t.about}</a></nav>
           <div className="header-actions">
             <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
             <button className="chip-button" onClick={() => setLanguage((value) => value === "en" ? "th" : "en")}>{language === "en" ? "TH" : "EN"}</button>

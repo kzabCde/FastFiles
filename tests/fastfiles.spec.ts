@@ -145,7 +145,7 @@ test("PDF thumbnails render and PDF to image download works without UI errors", 
   await expect(page.locator(".page-thumb img")).toHaveCount(2, { timeout: 20_000 });
   await assertNoHorizontalOverflow(page);
 
-  await page.getByRole("button", { name: /TOOLS/i }).click();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByRole("button", { name: /PDF to Images/i }).first().click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /CONVERT.*DOWNLOAD ZIP/i }).click();

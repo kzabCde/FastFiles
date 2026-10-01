@@ -608,12 +608,15 @@ footer span:last-child { justify-self: end; }
 
 @media (max-width: 680px) {
   .section-shell, .hero-wrap { width: min(100% - 28px, 1280px); }
-  .header-inner { width: calc(100% - 24px); min-height: 62px; }
+  .header-inner { width: calc(100% - 24px); min-height: 62px; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .header-inner > div:first-child { min-width: 0; gap: 6px !important; }
   .brand { font-size: 16px; }
   .brand-mark { width: 31px; height: 31px; border-radius: 9px; }
+  .header-actions { gap: 4px; }
   .header-actions select { display: inline-flex; min-height: 36px; padding: 0 8px; font-size: 10px; min-width: 64px; pointer-events: auto; opacity: 1; }
   .chip-button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; padding-inline: 9px; }
-  .top-drop-button { height: 36px; padding: 0 11px; font-size: 11px; }
+  .top-drop-button { width: 36px; height: 36px; padding: 0; font-size: 0; }
+  .top-drop-button span { margin: 0; font-size: 16px; }
   .hero-section { padding: 32px 0 16px; }
   .hero-copy h1 { margin-top: 16px; font-size: clamp(36px, 10vw, 52px); }
   .hero-body { font-size: 14px; }

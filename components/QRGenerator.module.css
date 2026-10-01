@@ -56,10 +56,12 @@
 }
 
 @media (max-width: 680px) {
-  .header { width: calc(100% - 24px); min-height: 66px; grid-template-columns: auto 1fr auto; gap: 8px; }
+  .header { width: calc(100% - 24px); min-height: 66px; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px; }
+  .titleBlock { min-width: 0; }
   .titleBlock h1 { font-size: 15px; }
   .titleBlock span { display: none; }
-  .headerActions select { display: inline-flex; min-height: 34px; padding: 0 8px; font-size: 10px; min-width: 64px; pointer-events: auto; opacity: 1; }
+  .headerActions { gap: 4px; }
+  .headerActions select { display: inline-flex; width: 60px; min-width: 0; min-height: 34px; padding: 0 6px; font-size: 10px; pointer-events: auto; opacity: 1; }
   .headerActions button, .back { min-height: 34px; padding-inline: 9px; font-size: 10px; }
   .intro, .workspace { width: calc(100% - 24px); }
   .intro { margin-top: 18px; align-items: flex-start; flex-direction: column; }

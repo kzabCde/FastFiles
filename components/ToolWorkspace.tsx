@@ -30,7 +30,6 @@ import {
   type PdfMetadata,
   type PdfMetadataPatch,
   type PdfPageState,
-  type PdfRotateOptions,
   type PdfRotationAngle,
   type PdfRotationScope,
   type PdfSignatureOptions,

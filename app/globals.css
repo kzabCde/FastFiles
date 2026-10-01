@@ -336,7 +336,7 @@ svg { display: block; }
 .tool-card:hover .tool-arrow { display: none; }
 .tool-card > div:nth-child(2) { grid-column: 1; grid-row: 1; margin-top: 0; align-self: end; }
 .tool-name { display: block; font-size: 14px; font-weight: 650; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-card p { grid-column: 1; grid-row: 2; min-height: 0; margin: 2px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.tool-card p { grid-column: 1; grid-row: 2; min-height: 0; margin: 2px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .tool-code { display: none; }
 
 .watermark-preview-overlay {

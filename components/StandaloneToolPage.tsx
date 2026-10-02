@@ -66,6 +66,12 @@ export default function StandaloneToolPage({ tool }: Props) {
 
   const acceptFiles = async (incoming: File[]) => {
     setError("");
+    if (tool.id === "word-to-pdf" && incoming.some((file) => /\.doc$/i.test(file.name) || file.type === "application/msword")) {
+      setError(language === "th"
+        ? "ยังไม่รองรับไฟล์ .doc รุ่นเก่า กรุณาบันทึกเป็น .docx แล้วลองอีกครั้ง"
+        : "Legacy .doc files are not supported yet. Save the document as .docx and try again.");
+      return;
+    }
     const matching = incoming.filter((file) => {
       const kind = kindOf(file);
       return (kind === "pdf" && acceptsPdf) || (kind === "docx" && acceptsDocx) || (kind === "image" && acceptsImage);

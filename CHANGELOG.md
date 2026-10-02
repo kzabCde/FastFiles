@@ -4,22 +4,26 @@
 
 ### Added
 
-- Local DOCX → PDF conversion with DOCX package validation, page geometry, common text formatting, page breaks, simple tables, embedded images, headers/footers, progress reporting, and cancellation.
-- Local text-based PDF → editable DOCX reconstruction using PDF.js text geometry, heading inference, simple-table heuristics, multi-column reading order, page breaks, and best-effort image extraction.
-- DOCX file intake, Word/PDF converter routes, smart actions, quality analysis, and explicit legacy `.doc` guidance.
-- Scan detection that blocks misleading empty DOCX output when OCR is required.
-- Unit and cross-browser Playwright coverage for the new document converters.
+- Local DOCX → PDF conversion with DOCX package validation plus a lazy-loaded `docx-preview` layout pass for Word page geometry, styles, tables, images, headers/footers, columns and page-break hints.
+- Local rendered-DOM capture with `html2canvas`, followed by `pdf-lib` page assembly; the existing custom renderer remains as an explicitly reported compatibility fallback.
+- PDF → Word **Preserve Layout** mode as the default. PDF.js renders each source page locally and FastFiles embeds it as a full-page anchored image in a matching Word section.
+- PDF → Word **Editable** mode for text PDFs using text geometry, heading inference, simple-table heuristics, multi-column reading order, page breaks and best-effort image extraction.
+- Preserve Layout support for image-only/scanned PDFs without OCR; Editable scan conversion remains OCR-dependent.
+- DOCX file intake, Word/PDF converter routes, smart actions, quality analysis, cancellation, conversion-mode controls and explicit legacy `.doc` guidance.
+- Unit and cross-browser Playwright coverage for high-fidelity Word rendering, default Preserve Layout, Editable reconstruction, scan preservation and legacy `.doc` rejection.
 
 ### Changed
 
-- FastFiles file intake and queue now recognize DOCX alongside PDF and image files.
-- Document conversion reuses the existing local-first JSZip, PDF.js, and pdf-lib stack without adding a cloud conversion service or database.
+- FastFiles file intake and queue recognize DOCX alongside PDF and image files.
+- Document conversion remains browser-local and does not add a cloud conversion service, account, database or permanent file storage.
+- Heavy DOCX rendering/capture libraries are loaded only when Word → PDF processing is requested.
 
 ### Known limitations
 
-- Word → PDF uses page rasterization to favor visual fidelity, so selectable PDF text is not guaranteed.
-- Scanned PDF → Word requires OCR and is reported as unsupported rather than silently generating an empty Word file.
-- Complex Word/PDF layout reconstruction remains best-effort.
+- Word → PDF output is page-rasterized after layout rendering, so selectable PDF text is not guaranteed and unsupported Word features can still differ from Microsoft Word.
+- Preserve Layout PDF → Word keeps page appearance by embedding page images, so text inside those pages is not directly editable.
+- Editable PDF → Word remains heuristic reconstruction and can differ on complex layouts.
+- OCR is not bundled; it is required only when editable text is requested from scanned/image-only PDFs.
 
 ## 0.3.0 — 2026-09-28
 

@@ -453,8 +453,12 @@ export function reconstructPdfBlocks(lines: PdfLayoutLine[], pageWidth = A4_WIDT
 export async function convertPdfToDocx(
   file: File,
   onProgress?: ConversionProgress,
+  options?: { signal?: AbortSignal; analysis?: PdfWordAnalysis },
 ): Promise<{ blob: Blob; analysis: PdfWordAnalysis; extractedImages: number }> {
-  const analysis = await analyzePdfForWord(file);
+  const signal = options?.signal;
+  assertNotAborted(signal);
+  const analysis = options?.analysis ?? await analyzePdfForWord(file);
+  assertNotAborted(signal);
   if (!analysis.hasText || analysis.likelyScanned) {
     throw new Error("Scanned document detected. OCR is required before FastFiles can create a reliable editable Word document.");
   }
@@ -462,11 +466,13 @@ export async function convertPdfToDocx(
   const pdfjs = await getPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  assertNotAborted(signal);
   const pages: PdfPageModel[] = [];
   let extractedImages = 0;
 
   try {
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
+      assertNotAborted(signal);
       const page = await doc.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1 });
       const content = await page.getTextContent();
@@ -491,21 +497,29 @@ export async function convertPdfToDocx(
       page.cleanup();
       onProgress?.(pageNumber, doc.numPages, `Page ${pageNumber} of ${doc.numPages}`);
       await yieldToBrowser();
+      assertNotAborted(signal);
     }
   } finally {
     await doc.destroy();
   }
 
+  assertNotAborted(signal);
   const blob = await buildEditableDocx(pages);
+  assertNotAborted(signal);
   return { blob, analysis, extractedImages };
 }
 
 export async function convertDocxToPdf(
   file: File,
   onProgress?: ConversionProgress,
+  options?: { signal?: AbortSignal; analysis?: DocxAnalysis },
 ): Promise<{ blob: Blob; pageCount: number; analysis: DocxAnalysis }> {
-  const analysis = await analyzeDocx(file);
+  const signal = options?.signal;
+  assertNotAborted(signal);
+  const analysis = options?.analysis ?? await analyzeDocx(file);
+  assertNotAborted(signal);
   const parsed = await parseDocx(file);
+  assertNotAborted(signal);
   const pdf = await PDFDocument.create();
   const scale = canvasScaleForPage(parsed.pageWidth, parsed.pageHeight);
   let canvas = createPageCanvas(parsed.pageWidth, parsed.pageHeight, scale);
@@ -526,7 +540,9 @@ export async function convertDocxToPdf(
   };
 
   const finishPage = async () => {
+    assertNotAborted(signal);
     const pngBlob = await canvasToBlob(canvas, "image/png", 1);
+    assertNotAborted(signal);
     const embedded = await pdf.embedPng(await pngBlob.arrayBuffer());
     const page = pdf.addPage([parsed.pageWidth, parsed.pageHeight]);
     page.drawImage(embedded, { x: 0, y: 0, width: parsed.pageWidth, height: parsed.pageHeight });
@@ -535,6 +551,7 @@ export async function convertDocxToPdf(
     canvas.width = 1;
     canvas.height = 1;
     await yieldToBrowser();
+    assertNotAborted(signal);
   };
 
   const ensureSpace = async (height: number) => {
@@ -546,6 +563,7 @@ export async function convertDocxToPdf(
   beginPage();
 
   for (const block of parsed.blocks) {
+    assertNotAborted(signal);
     if (block.type === "paragraph") {
       if (block.pageBreakBefore && y > parsed.marginTop + 8) {
         await finishPage();
@@ -627,7 +645,9 @@ export async function convertDocxToPdf(
   }
 
   if (pageCount === 0 || y > parsed.marginTop + 1) await finishPage();
+  assertNotAborted(signal);
   const pdfBytes = await pdf.save({ useObjectStreams: true });
+  assertNotAborted(signal);
   return { blob: bytesToBlob(pdfBytes, "application/pdf"), pageCount, analysis };
 }
 
@@ -1361,6 +1381,13 @@ async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: nu
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Unable to encode a document page.")), type, quality);
   });
+}
+
+function assertNotAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  const error = new Error("Conversion cancelled.");
+  error.name = "AbortError";
+  throw error;
 }
 
 function yieldToBrowser() {

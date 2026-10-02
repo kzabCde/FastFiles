@@ -638,7 +638,7 @@ async function convertDocxToPdfPreserveLayout(
     const pageNodes = Array.from(bodyHost.querySelectorAll<HTMLElement>("section.ff-docx"));
     const pages = pageNodes.length
       ? pageNodes
-      : Array.from(bodyHost.querySelectorAll<HTMLElement>(".docx-wrapper > section"));
+      : Array.from(bodyHost.querySelectorAll<HTMLElement>(".ff-docx-wrapper > section"));
 
     if (!pages.length) throw new Error("The DOCX renderer did not produce any pages.");
 
@@ -684,7 +684,7 @@ async function captureDocxPage(
 
   const xhtml = document.createElement("div");
   xhtml.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-  xhtml.className = "docx-wrapper";
+  xhtml.className = "ff-docx-wrapper";
   xhtml.style.width = `${widthPx}px`;
   xhtml.style.height = `${heightPx}px`;
   xhtml.style.margin = "0";

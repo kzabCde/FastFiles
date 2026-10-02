@@ -68,6 +68,7 @@ export default function FileQueue({
     pdf: "PDF",
     images: "รูป",
     html: "HTML",
+    word: "Word",
     ready: "พร้อม",
     checking: "กำลังตรวจ",
     warning: "ตรวจสอบ",
@@ -84,6 +85,7 @@ export default function FileQueue({
     pdf: "PDF",
     images: "images",
     html: "HTML",
+    word: "Word",
     ready: "Ready",
     checking: "Checking",
     warning: "Review",
@@ -99,7 +101,7 @@ export default function FileQueue({
         <div>
           <span className="section-kicker">{t.title}</span>
           <strong>{summary.count} {t.files} · {formatBytes(summary.totalSize)} {t.total}</strong>
-          <small>{summary.pdfCount} {t.pdf} · {summary.imageCount} {t.images} · {summary.htmlCount} {t.html}{summary.errorCount ? ` · ${summary.errorCount} ${t.error}` : ""}</small>
+          <small>{summary.pdfCount} {t.pdf} · {summary.imageCount} {t.images} · {summary.htmlCount} {t.html} · {summary.docxCount} {t.word}{summary.errorCount ? ` · ${summary.errorCount} ${t.error}` : ""}</small>
         </div>
         <div className="queue-actions">
           <button className="secondary-button compact" onClick={onAdd}>+ {t.add}</button>

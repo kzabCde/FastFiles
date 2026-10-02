@@ -1,5 +1,6 @@
 import { getPdfPageCount } from "@/lib/pdf-tools";
 import { probeImage } from "@/lib/image-tools";
+import { validateDocx } from "@/lib/document-tools";
 import { kindOf, type FileKind } from "@/lib/tools";
 
 export type IntakeStatus = "checking" | "ready" | "warning" | "error";
@@ -21,6 +22,7 @@ export type QueueSummary = {
   pdfCount: number;
   imageCount: number;
   htmlCount: number;
+  docxCount: number;
   errorCount: number;
   totalPages: number;
 };
@@ -40,7 +42,8 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
 
   const kind = kindOf(file);
   if (kind === "unsupported") {
-    return { id, file, kind, status: "error", message: "unsupported" };
+    const legacyDoc = /\.doc$/i.test(file.name) || file.type === "application/msword";
+    return { id, file, kind, status: "error", message: legacyDoc ? "legacy-doc" : "unsupported" };
   }
 
   if (kind === "pdf") {
@@ -62,6 +65,15 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
     const text = new TextDecoder("utf-8", { fatal: false }).decode(sample).trim();
     if (!text) return { id, file, kind, status: "error", message: "invalid-html" };
     return { id, file, kind, status: "ready" };
+  }
+
+  if (kind === "docx") {
+    try {
+      await validateDocx(file);
+      return { id, file, kind, status: "ready" };
+    } catch {
+      return { id, file, kind, status: "error", message: "invalid-docx" };
+    }
   }
 
   const ext = file.name.toLowerCase().split(".").pop() ?? "";
@@ -97,10 +109,11 @@ export function summarizeQueue(items: FileQueueItem[]): QueueSummary {
     if (item.kind === "pdf") summary.pdfCount += 1;
     if (item.kind === "image") summary.imageCount += 1;
     if (item.kind === "html") summary.htmlCount += 1;
+    if (item.kind === "docx") summary.docxCount += 1;
     if (item.status === "error") summary.errorCount += 1;
     summary.totalPages += item.pageCount ?? 0;
     return summary;
-  }, { count: 0, totalSize: 0, pdfCount: 0, imageCount: 0, htmlCount: 0, errorCount: 0, totalPages: 0 });
+  }, { count: 0, totalSize: 0, pdfCount: 0, imageCount: 0, htmlCount: 0, docxCount: 0, errorCount: 0, totalPages: 0 });
 }
 
 export function isLargeWorkload(summary: QueueSummary) {
@@ -115,6 +128,8 @@ export function fileIssueMessage(code: string, language: "en" | "th") {
   const messages: Record<string, [string, string]> = {
     "zero-byte": ["This file is empty.", "ไฟล์นี้ไม่มีข้อมูล"],
     unsupported: ["This file type is not supported.", "ยังไม่รองรับไฟล์ประเภทนี้"],
+    "legacy-doc": ["Legacy .doc files are not supported yet. Save the document as .docx and try again.", "ยังไม่รองรับไฟล์ .doc รุ่นเก่า กรุณาบันทึกเป็น .docx แล้วลองอีกครั้ง"],
+    "invalid-docx": ["The DOCX file appears to be damaged or incomplete.", "ไฟล์ DOCX อาจเสียหายหรือมีข้อมูลไม่ครบ"],
     "unsupported-image": ["This image format is not supported by FastFiles.", "FastFiles ยังไม่รองรับรูปแบบภาพนี้"],
     "unsupported-avif": ["This browser cannot decode this AVIF image. Try a current Chromium, Firefox, or Safari release, or convert it first.", "เบราว์เซอร์นี้ไม่สามารถอ่านภาพ AVIF ไฟล์นี้ได้ กรุณาใช้เบราว์เซอร์เวอร์ชันปัจจุบันหรือแปลงไฟล์ก่อน"],
     "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
@@ -141,4 +156,3 @@ export function isExternalFileDrag(event: { dataTransfer: DataTransfer | null })
   const types = Array.from(event.dataTransfer.types ?? []);
   return types.includes("Files") && !types.some((t) => t.startsWith("application/x-fastfiles-"));
 }
-

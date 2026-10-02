@@ -2,7 +2,7 @@
 
 **Drop. Edit. Done.**
 
-FastFiles is a privacy-focused, local-first PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
+FastFiles is a privacy-focused, local-first document, PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
 
 ## FastFiles v0.3.0 — Editing Experience & Product Quality
 
@@ -10,6 +10,7 @@ FastFiles v0.3.0 turns the existing local-first tools into a more complete brows
 
 ### Highlights
 
+- **Word ↔ PDF** — DOCX → PDF uses a browser-side Word layout renderer before page capture, while PDF → Word offers **Preserve Layout** (default) and **Editable** modes. Both stay local, with progress, cancellation, scan support in Preserve Layout, and no cloud conversion.
 - **Image Editor V3** — full-resolution export backed by a lightweight live preview, freeform/preset crop, eight resize handles, zoom/pan, 90° and custom rotation, flip, Before/After, Reset, and state-only Undo/Redo.
 - **Resize and compression** — Original/25%/50%/75%/1080px/1920px/1440p/4K presets, custom dimensions, aspect lock, four quality presets, estimated pre-export size, and actual Result Center metrics.
 - **Watermark V2** — text or PNG/JPG/WebP logo watermark, nine presets or normalized drag positioning, size, opacity, rotation, color, weight, shadow intensity, margin, and tiled repeat mode.
@@ -108,6 +109,16 @@ The QR workspace supports Thai/English UI, Light/Dark/System themes and responsi
 - Mixed PDF + image selections do not receive actions that would fail on that combination.
 - Large-workload warning based on file count, total bytes and known PDF page counts. This is a safety warning, not a claimed browser file-size limit.
 
+### Document conversion
+
+- DOCX → PDF validates the package, then lazy-loads `docx-preview` to render Word page geometry, styles, tables, images, headers/footers, columns and page-break hints into local DOM pages. FastFiles captures those rendered pages locally with `html2canvas` and assembles the PDF with `pdf-lib`.
+- If the higher-fidelity DOCX renderer cannot complete in a browser, FastFiles falls back to the existing compatibility renderer and reports that downgrade in the result instead of hiding it.
+- PDF → Word defaults to **Preserve Layout**, rendering each source PDF page locally and placing it as a full-page anchored image in a matching Word page. This preserves the visual page, including scans, forms, tables and multi-column layouts, but the text inside the page image is not directly editable.
+- **Editable** PDF → Word remains available for PDFs with a usable text layer. It reconstructs paragraphs, inferred headings, simple tables, multi-column reading order, page breaks and best-effort images, so layout can differ from the original.
+- Scanned/image-only PDFs work in Preserve Layout. OCR is required only when editable text is requested from a scan.
+- Legacy `.doc` is intentionally unsupported; save as `.docx` before conversion.
+- Conversion results stay in memory until downloaded or the current session is discarded.
+
 ### PDF tools
 
 - Merge PDF
@@ -164,6 +175,11 @@ Image re-encoding uses browser Canvas APIs. Re-encoding commonly drops source me
 
 ## Known limitations
 
+- Word → PDF now preserves layout through a Word-oriented DOM renderer before rasterizing each rendered page into the PDF. This improves visual fidelity, but selectable/searchable PDF text is still not guaranteed and unsupported Word features can still differ from Microsoft Word.
+- PDF → Word **Preserve Layout** prioritizes appearance by using full-page images; text inside those pages is not directly editable.
+- PDF → Word **Editable** reconstructs document structure heuristically; complex magazines, floating objects, equations, unusual fonts and heavily designed layouts can differ from the source.
+- Scanned/image-only PDFs can use Preserve Layout without OCR. OCR is still required to turn scan pixels into editable Word text and is not bundled in this implementation.
+- Legacy `.doc` files are not supported; DOCX is the supported Word input.
 - Password-protected PDFs are detected but cannot be unlocked.
 - PDF metadata clearing targets text fields supported by `pdf-lib`; document dates or other low-level metadata may remain.
 - Browser memory limits vary by device, browser and file content. FastFiles intentionally does not publish an unverified maximum file size.
@@ -213,6 +229,7 @@ npm run test:e2e
 - `components/ResultCenter.tsx` — reusable single/batch output UI
 - `lib/file-intake.ts` — local validation, queue summaries and workload checks
 - `lib/pdf-tools.ts` — pdf-lib + bundled PDF.js rendering/processing
+- `lib/document-tools.ts` — local DOCX/PDF analysis, high-fidelity DOCX rendering/capture, Preserve Layout PDF→DOCX and Editable PDF reconstruction
 - `lib/image-tools.ts` — full-resolution Canvas export, crop geometry, watermark rendering, worker acceleration and partial batch recovery
 - `lib/image-worker-client.ts` — browser capability detection and accelerated worker lifecycle
 - `workers/image-processor.worker.ts` — OffscreenCanvas image transform and encoding worker

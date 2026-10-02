@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ToolWorkspace from "./ToolWorkspace";
+import DocumentToolWorkspace from "./DocumentToolWorkspace";
 import FileQueue from "./FileQueue";
 import NavigationMenu from "./NavigationMenu";
 import QRGenerator from "./QRGenerator";
@@ -75,6 +76,8 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
   "pdf-text": { en: "Extract selectable PDF text as a local TXT file", th: "ดึงข้อความที่เลือกได้จาก PDF เป็นไฟล์ TXT" },
   "pdf-to-html": { en: "Export PDF pages as an offline visual web document", th: "แปลงหน้า PDF เป็นเว็บออฟไลน์ที่คงหน้าตาเดิม" },
   "html-to-pdf": { en: "Turn safe local HTML into a downloadable PDF", th: "แปลง HTML ที่ตรวจสอบแล้วเป็น PDF ในเครื่อง" },
+  "word-to-pdf": { en: "Convert DOCX documents to PDF locally", th: "แปลงเอกสาร DOCX เป็น PDF ในเครื่อง" },
+  "pdf-to-word": { en: "Rebuild text-based PDFs as editable DOCX", th: "สร้าง PDF ที่มีข้อความกลับเป็น DOCX ที่แก้ไขได้" },
   "images-to-pdf": { en: "Turn JPG, PNG and WebP into PDF", th: "รวม JPG, PNG และ WebP เป็น PDF" },
   "pdf-to-images": { en: "Export PDF pages as PNG images", th: "แปลงหน้า PDF ออกเป็น PNG" },
   "image-convert": { en: "Convert JPG, PNG, WebP and supported AVIF", th: "แปลง JPG, PNG, WebP และ AVIF เมื่อเบราว์เซอร์รองรับ" },
@@ -195,7 +198,7 @@ export default function FastFilesApp() {
   const openTool = (tool: ToolDefinition) => {
     setActiveQr(false);
     const currentKind = groupKind(files);
-    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : currentKind === "html" ? "html" : null;
+    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : currentKind === "html" ? "html" : currentKind === "docx" ? "docx" : null;
     if (files.length && normalizedKind && tool.accepts.includes(normalizedKind)) setActiveTool(tool);
     else openPicker();
   };
@@ -217,8 +220,9 @@ export default function FastFilesApp() {
   }
 
   if (activeTool && files.length) {
+    const Workspace = activeTool.id === "word-to-pdf" || activeTool.id === "pdf-to-word" ? DocumentToolWorkspace : ToolWorkspace;
     return (
-      <ToolWorkspace
+      <Workspace
         tool={activeTool}
         files={files}
         language={language}
@@ -288,7 +292,7 @@ export default function FastFilesApp() {
         </div>
       </header>
 
-      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,text/html,image/jpeg,image/png,image/webp,image/avif,.pdf,.html,.htm,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
+      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/jpeg,image/png,image/webp,image/avif,.pdf,.docx,.html,.htm,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
 
       <section className="hero-section">
         <div className="hero-wrap">
@@ -305,13 +309,13 @@ export default function FastFilesApp() {
           <button className={`drop-surface ${queue.length ? "has-files" : ""}`} onClick={openPicker}>
             <div className="drop-glow" aria-hidden="true" />
             {!queue.length ? (
-              <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span><span className="paste-hint muted">{language === "th" ? "หรือกด Ctrl+V วางจาก clipboard" : "or press Ctrl+V to paste from clipboard"}</span></div>
+              <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>DOCX</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span><span className="paste-hint muted">{language === "th" ? "หรือกด Ctrl+V วางจาก clipboard" : "or press Ctrl+V to paste from clipboard"}</span></div>
             ) : (
               <div className="drop-content loaded">
                 <span className="ready-badge"><span className="live-dot" /> {t.detected}</span>
                 <DropzoneThumbnails items={queue} />
                 <strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong>
-                <span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.imageCount} IMG · {summary.htmlCount} HTML</span>
+                <span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.docxCount} DOCX · {summary.imageCount} IMG · {summary.htmlCount} HTML</span>
                 <span className="browse-link">+ {t.newFiles}</span>
               </div>
             )}

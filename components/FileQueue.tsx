@@ -56,7 +56,7 @@ export default function FileQueue({
   onClear: () => void;
 }) {
   const dragIndex = useRef(-1);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverState, setDragOverState] = useState<{ index: number; position: "above" | "below" } | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const t = language === "th" ? {
@@ -73,6 +73,8 @@ export default function FileQueue({
     warning: "ตรวจสอบ",
     error: "ใช้ไม่ได้",
     remove: "ลบไฟล์",
+    moveUp: "เลื่อนขึ้น",
+    moveDown: "เลื่อนลง",
   } : {
     title: "File queue",
     add: "Add files",
@@ -87,6 +89,8 @@ export default function FileQueue({
     warning: "Review",
     error: "Unavailable",
     remove: "Remove file",
+    moveUp: "Move up",
+    moveDown: "Move down",
   };
 
   return (
@@ -104,76 +108,141 @@ export default function FileQueue({
       </div>
 
       <div className="queue-list">
-        {items.map((item, index) => (
-          <div
-            className={`queue-row status-${item.status}${dragOverIndex === index ? " drag-over" : ""}${draggingIndex === index ? " is-dragging" : ""}`}
-            key={item.id}
-            onDragOver={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (event.dataTransfer) {
-                event.dataTransfer.dropEffect = "move";
-              }
-              if (dragOverIndex !== index) {
-                setDragOverIndex(index);
-              }
-            }}
-            onDragLeave={(event) => {
-              if (event.currentTarget === event.target) {
-                setDragOverIndex((curr) => (curr === index ? null : curr));
-              }
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              const from = dragIndex.current;
-              dragIndex.current = -1;
-              setDraggingIndex(null);
-              setDragOverIndex(null);
-              if (from >= 0 && from !== index) {
-                onReorder(from, index);
-              }
-            }}
-          >
-            <button
-              type="button"
-              className="drag-handle"
-              draggable
-              aria-label={`${language === "th" ? "ลากเพื่อเรียง" : "Drag to reorder"} ${item.file.name}`}
-              onDragStart={(event) => {
-                dragIndex.current = index;
-                setDraggingIndex(index);
-                event.dataTransfer.setData("application/x-fastfiles-reorder", String(index));
-                event.dataTransfer.effectAllowed = "move";
+        {items.map((item, index) => {
+          const isOver = dragOverState?.index === index;
+          const pos = isOver ? dragOverState.position : null;
+          const isCurrentDrag = draggingIndex === index;
+
+          return (
+            <div
+              className={`queue-row status-${item.status}${pos ? ` drag-over-${pos}` : ""}${isCurrentDrag ? " is-dragging" : ""}`}
+              key={item.id}
+              onDragOver={(event) => {
+                event.preventDefault();
                 event.stopPropagation();
+                if (event.dataTransfer) {
+                  event.dataTransfer.dropEffect = "move";
+                }
+                const rect = event.currentTarget.getBoundingClientRect();
+                const ratio = (event.clientY - rect.top) / rect.height;
+                const position: "above" | "below" = ratio < 0.5 ? "above" : "below";
+                if (!dragOverState || dragOverState.index !== index || dragOverState.position !== position) {
+                  setDragOverState({ index, position });
+                }
               }}
-              onDragEnd={() => {
+              onDragLeave={(event) => {
+                if (event.currentTarget === event.target) {
+                  setDragOverState((curr) => (curr?.index === index ? null : curr));
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const from = dragIndex.current;
+                const target = dragOverState;
                 dragIndex.current = -1;
                 setDraggingIndex(null);
-                setDragOverIndex(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowUp" && index > 0) {
-                  event.preventDefault();
-                  onReorder(index, index - 1);
-                } else if (event.key === "ArrowDown" && index < items.length - 1) {
-                  event.preventDefault();
-                  onReorder(index, index + 1);
+                setDragOverState(null);
+
+                if (from >= 0) {
+                  const to = target ? target.index : index;
+                  const targetPos = target ? target.position : (from < index ? "below" : "above");
+                  if (from === to && targetPos === (from < to ? "below" : "above")) return;
+
+                  let targetIndex = to;
+                  if (from < to) {
+                    targetIndex = targetPos === "above" ? to - 1 : to;
+                  } else {
+                    targetIndex = targetPos === "above" ? to : to + 1;
+                  }
+
+                  if (targetIndex !== from && targetIndex >= 0 && targetIndex < items.length) {
+                    onReorder(from, targetIndex);
+                  }
                 }
               }}
             >
-              <span /> <span /> <span />
-            </button>
-            <QueueThumbnail item={item} />
-            <div className="queue-file-copy">
-              <strong title={item.file.name}>{item.file.name}</strong>
-              <span>{formatBytes(item.file.size)}{item.pageCount ? ` · ${item.pageCount} ${language === "th" ? "หน้า" : "pages"}` : ""}{item.width && item.height ? ` · ${item.width}×${item.height}` : ""}</span>
-              {item.message && <small>{fileIssueMessage(item.message, language)}</small>}
+              {isOver && pos && (
+                <div className={`queue-drop-indicator ${pos}`} role="presentation">
+                  <span className="queue-drop-line" />
+                  <span className="queue-drop-pill">
+                    {pos === "above" ? (
+                      <>
+                        <span className="drop-arrow">↑</span>{" "}
+                        {language === "th" ? (index === 0 ? "วางบนสุด" : "แทรกด้านบน") : (index === 0 ? "Insert at top" : "Insert above")}
+                      </>
+                    ) : (
+                      <>
+                        <span className="drop-arrow">↓</span>{" "}
+                        {language === "th" ? (index === items.length - 1 ? "วางล่างสุด" : "แทรกด้านล่าง") : (index === items.length - 1 ? "Insert at bottom" : "Insert below")}
+                      </>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="drag-handle"
+                draggable
+                aria-label={`${language === "th" ? "ลากเพื่อเรียง" : "Drag to reorder"} ${item.file.name}`}
+                onDragStart={(event) => {
+                  dragIndex.current = index;
+                  setDraggingIndex(index);
+                  event.dataTransfer.setData("application/x-fastfiles-reorder", String(index));
+                  event.dataTransfer.effectAllowed = "move";
+                  event.stopPropagation();
+                }}
+                onDragEnd={() => {
+                  dragIndex.current = -1;
+                  setDraggingIndex(null);
+                  setDragOverState(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowUp" && index > 0) {
+                    event.preventDefault();
+                    onReorder(index, index - 1);
+                  } else if (event.key === "ArrowDown" && index < items.length - 1) {
+                    event.preventDefault();
+                    onReorder(index, index + 1);
+                  }
+                }}
+              >
+                <span /> <span /> <span />
+              </button>
+              <QueueThumbnail item={item} />
+              <div className="queue-file-copy">
+                <strong title={item.file.name}>{item.file.name}</strong>
+                <span>{formatBytes(item.file.size)}{item.pageCount ? ` · ${item.pageCount} ${language === "th" ? "หน้า" : "pages"}` : ""}{item.width && item.height ? ` · ${item.width}×${item.height}` : ""}</span>
+                {item.message && <small>{fileIssueMessage(item.message, language)}</small>}
+              </div>
+              <span className={`queue-status ${item.status}`}>{item.status === "checking" ? t.checking : item.status === "error" ? t.error : item.status === "warning" ? t.warning : t.ready}</span>
+              <div className="queue-row-actions">
+                <button
+                  type="button"
+                  className="queue-move-btn"
+                  disabled={index === 0}
+                  onClick={() => onReorder(index, index - 1)}
+                  title={t.moveUp}
+                  aria-label={`${t.moveUp}: ${item.file.name}`}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="queue-move-btn"
+                  disabled={index === items.length - 1}
+                  onClick={() => onReorder(index, index + 1)}
+                  title={t.moveDown}
+                  aria-label={`${t.moveDown}: ${item.file.name}`}
+                >
+                  ▼
+                </button>
+                <button className="remove-file" onClick={() => onRemove(item.id)} aria-label={`${t.remove}: ${item.file.name}`}>×</button>
+              </div>
             </div>
-            <span className={`queue-status ${item.status}`}>{item.status === "checking" ? t.checking : item.status === "error" ? t.error : item.status === "warning" ? t.warning : t.ready}</span>
-            <button className="remove-file" onClick={() => onRemove(item.id)} aria-label={`${t.remove}: ${item.file.name}`}>×</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

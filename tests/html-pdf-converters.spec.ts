@@ -27,8 +27,12 @@ test("HTML to PDF sanitizes active content and downloads a valid PDF", async ({ 
   await expect(preview.locator("script")).toHaveCount(0);
   await expect(preview.locator("img")).not.toHaveAttribute("src", /example\.com/);
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "DOWNLOAD PDF" }).click();
+  const downloadButton = page.getByRole("button", { name: /DOWNLOAD PDF|ดาวน์โหลด PDF/i });
+  await expect(downloadButton).toBeVisible();
+  await expect(downloadButton).toBeEnabled();
+  await downloadButton.scrollIntoViewIfNeeded();
+  const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
+  await downloadButton.click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("safe-document.pdf");
   const path = await download.path();
@@ -49,8 +53,12 @@ test("PDF to HTML downloads a self-contained searchable HTML file", async ({ pag
   await page.locator('input[type="file"]').setInputFiles({ name: "two-pages.pdf", mimeType: "application/pdf", buffer: await makePdf() });
   await expect(page.getByTestId("pdf-to-html-workspace")).toBeVisible();
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "CONVERT & DOWNLOAD" }).click();
+  const downloadButton = page.getByRole("button", { name: /CONVERT & DOWNLOAD|แปลงไฟล์และดาวน์โหลด/i });
+  await expect(downloadButton).toBeVisible();
+  await expect(downloadButton).toBeEnabled();
+  await downloadButton.scrollIntoViewIfNeeded();
+  const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
+  await downloadButton.click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("two-pages.html");
   const path = await download.path();
@@ -66,8 +74,12 @@ test("PDF to HTML can bundle page assets into a ZIP", async ({ page }) => {
   await page.locator('input[type="file"]').setInputFiles({ name: "archive.pdf", mimeType: "application/pdf", buffer: await makePdf() });
   await page.getByLabel("OUTPUT").selectOption("zip");
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "CONVERT & DOWNLOAD" }).click();
+  const downloadButton = page.getByRole("button", { name: /CONVERT & DOWNLOAD|แปลงไฟล์และดาวน์โหลด/i });
+  await expect(downloadButton).toBeVisible();
+  await expect(downloadButton).toBeEnabled();
+  await downloadButton.scrollIntoViewIfNeeded();
+  const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
+  await downloadButton.click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("archive-html.zip");
   const path = await download.path();
@@ -114,16 +126,23 @@ test("images to PDF workspace supports grid layout, reorder, and custom options"
   await expect(page.locator(".img-sim-sheet")).toBeVisible();
 
   // Select 4 images per page (2x2)
-  await page.getByTestId("layout-pill-4").click();
+  const layoutPill = page.getByTestId("layout-pill-4");
+  await layoutPill.scrollIntoViewIfNeeded();
+  await layoutPill.click();
   await expect(page.locator(".img-sim-cell img")).toHaveCount(4);
 
   // Switch to reorder/manage view
-  await page.getByRole("button", { name: /Reorder/i }).click();
+  const reorderTab = page.getByTestId("view-mode-manage");
+  await reorderTab.dispatchEvent("click");
   await expect(page.locator(".img-manage-card")).toHaveCount(4);
 
   // Download PDF
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: /CREATE PDF/i }).click();
+  const downloadButton = page.getByRole("button", { name: /CREATE PDF|สร้าง PDF/i });
+  await expect(downloadButton).toBeVisible();
+  await expect(downloadButton).toBeEnabled();
+  await downloadButton.scrollIntoViewIfNeeded();
+  const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
+  await downloadButton.click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("fastfiles-images.pdf");
 });

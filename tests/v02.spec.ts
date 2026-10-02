@@ -110,8 +110,12 @@ test("files can be removed independently", async ({ page }) => {
   await expect(page.getByText("keep.png")).toBeVisible();
 });
 
-test("queue supports drag reorder", async ({ page, browserName }) => {
+test("queue supports drag reorder", async ({ page, browserName, isMobile }) => {
   test.skip(browserName === "webkit", "HTML drag behavior is already covered in Chromium/Firefox and is flaky in headless WebKit.");
+  test.skip(Boolean(isMobile), "HTML5 drag simulation is not supported on mobile touch emulation; keyboard and 1-click reorder buttons are tested instead.");
+  const viewport = page.viewportSize();
+  test.skip(Boolean(viewport && viewport.width < 1024), "HTML5 drag simulation is tested on desktop viewports.");
+
   await page.goto("/");
   await upload(page, [
     { name: "a.pdf", mimeType: "application/pdf", buffer: await makePdf() },

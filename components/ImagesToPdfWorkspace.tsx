@@ -275,6 +275,7 @@ export default function ImagesToPdfWorkspace({
           <div className="view-mode-tabs">
             <button
               type="button"
+              data-testid="view-mode-sheet"
               className={`tab-btn ${viewMode === "sheet" ? "active" : ""}`}
               onClick={() => setViewMode("sheet")}
             >
@@ -282,6 +283,7 @@ export default function ImagesToPdfWorkspace({
             </button>
             <button
               type="button"
+              data-testid="view-mode-manage"
               className={`tab-btn ${viewMode === "manage" ? "active" : ""}`}
               onClick={() => setViewMode("manage")}
             >

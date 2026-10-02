@@ -100,3 +100,32 @@ test("uploading or dropping an image renders live thumbnail in queue and dropzon
   await expect(dropzoneThumb).toHaveAttribute("src", /^blob:/);
 });
 
+test("images to PDF workspace supports grid layout, reorder, and custom options", async ({ page }) => {
+  await page.goto("/tools/images-to-pdf");
+  const pngBuffer = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+  await page.locator('input[type="file"]').setInputFiles([
+    { name: "img1.png", mimeType: "image/png", buffer: pngBuffer },
+    { name: "img2.png", mimeType: "image/png", buffer: pngBuffer },
+    { name: "img3.png", mimeType: "image/png", buffer: pngBuffer },
+    { name: "img4.png", mimeType: "image/png", buffer: pngBuffer },
+  ]);
+
+  await expect(page.getByTestId("images-to-pdf-workspace")).toBeVisible();
+  await expect(page.locator(".img-sim-sheet")).toBeVisible();
+
+  // Select 4 images per page (2x2)
+  await page.getByTestId("layout-pill-4").click();
+  await expect(page.locator(".img-sim-cell img")).toHaveCount(4);
+
+  // Switch to reorder/manage view
+  await page.getByRole("button", { name: /Reorder/i }).click();
+  await expect(page.locator(".img-manage-card")).toHaveCount(4);
+
+  // Download PDF
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /CREATE PDF/i }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("fastfiles-images.pdf");
+});
+
+

@@ -10,6 +10,7 @@ import PdfPreview from "./PdfPreview";
 import NavigationMenu from "./NavigationMenu";
 import HtmlToPdfWorkspace from "./HtmlToPdfWorkspace";
 import PdfToHtmlWorkspace from "./PdfToHtmlWorkspace";
+import ImagesToPdfWorkspace from "./ImagesToPdfWorkspace";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
@@ -18,7 +19,6 @@ import {
   extractPdfText,
   getPdfMetadata,
   getPdfPageCount,
-  imagesToPdf,
   mergePdfs,
   organizePdf,
   parsePageRange,
@@ -56,15 +56,7 @@ type ProgressState = { label: string; done: number; total: number; detail?: stri
 type Runner = (label: string, total: number, task: () => Promise<void>) => Promise<void>;
 type ProgressUpdater = (label: string) => (done: number, total: number) => void;
 
-function usePreviewUrls(files: File[]) {
-  const [urls, setUrls] = useState<string[]>([]);
-  useEffect(() => {
-    const next = files.map((file) => URL.createObjectURL(file));
-    setUrls(next);
-    return () => next.forEach((url) => URL.revokeObjectURL(url));
-  }, [files]);
-  return urls;
-}
+
 
 function Progress({ value, language }: { value: ProgressState; language: "en" | "th" }) {
   if (!value) return null;
@@ -535,12 +527,6 @@ function PdfTextWorkspace({ file, language, run, update, busy, onReset }: { file
   );
 }
 
-function ImagesToPdfWorkspace({ files, language, run, update, setResult, busy }: { files: File[]; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
-  const images = files.filter((file) => kindOf(file) === "image");
-  const urls = usePreviewUrls(images);
-  const process = () => run("BUILDING PDF", images.length, async () => { const blob = await imagesToPdf(images, update("BUILDING PDF")); const name = "fastfiles-images.pdf"; downloadBlob(blob, name); setResult({ label: language === "th" ? `${images.length} รูปเป็น PDF` : `${images.length} IMAGES → PDF`, entries: [{ name, blob }], before: images.reduce((sum, file) => sum + file.size, 0), after: blob.size }); });
-  return <div className="workspace-grid"><div className="image-grid">{images.map((file, index) => <figure key={`${file.name}-${index}`}><img src={urls[index]} alt={file.name} /><figcaption><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></figcaption></figure>)}</div><aside className="action-card"><h2>A4 DOCUMENT</h2><p>{language === "th" ? "รูปจะถูกจัดกึ่งกลางลงบนหน้า A4 ตามลำดับจาก File Queue" : "Images are centered on A4 pages using the File Queue order."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "สร้าง PDF" : "CREATE PDF"} ↗</button></aside></div>;
-}
 
 function PdfToImagesWorkspace({ file, language, run, update, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
   const process = () => run("RENDERING PDF", 1, async () => { const outputs = await pdfToPngs(file, update("RENDERING PDF")); await downloadZip(outputs, `${file.name.replace(/\.pdf$/i, "")}-images.zip`); setResult({ label: language === "th" ? `แปลง ${outputs.length} หน้าเป็น PNG แล้ว` : `${outputs.length} PDF PAGES → PNG`, entries: outputs, before: file.size, after: outputs.reduce((sum, item) => sum + item.blob.size, 0) }); });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ToolWorkspace from "./ToolWorkspace";
+import DocumentToolWorkspace from "./DocumentToolWorkspace";
 import FileQueue from "./FileQueue";
 import NavigationMenu from "./NavigationMenu";
 import QRGenerator from "./QRGenerator";
@@ -16,7 +17,7 @@ type Theme = "system" | "light" | "dark";
 const copy = {
   en: {
     hero: "Files should be easier.",
-    body: "Merge, convert, resize, compress, organize and generate QR codes without unnecessary uploads.",
+    body: "Convert documents, merge PDFs, edit images and generate QR codes without unnecessary uploads.",
     drop: "Drop files here",
     dropSub: "or click to browse · paste supported files",
     local: "Processed locally on your device",
@@ -32,7 +33,7 @@ const copy = {
     browse: "Browse files",
     popular: "Popular tools",
     popularSub: "Everyday PDF, image and QR work, without the clutter.",
-    mixed: "Mixed PDF and image selections do not share a safe action yet. Remove a type or add matching files.",
+    mixed: "Different file types do not share a safe action yet. Remove a type or add matching files.",
     noReady: "Remove unavailable files before choosing a tool.",
     workload: "Large workload",
     workloadBody: "This operation may use significant memory on this device. FastFiles does not claim a fixed maximum file size because browser limits vary by device.",
@@ -40,7 +41,7 @@ const copy = {
   },
   th: {
     hero: "จัดการไฟล์ให้ง่ายกว่านี้",
-    body: "รวม แปลง ปรับขนาด บีบอัด จัดหน้าไฟล์ และสร้าง QR Code โดยลดการอัปโหลดที่ไม่จำเป็น",
+    body: "แปลงเอกสาร รวม PDF แก้ไขรูปภาพ และสร้าง QR Code โดยลดการอัปโหลดที่ไม่จำเป็น",
     drop: "วางไฟล์ที่นี่",
     dropSub: "หรือคลิกเพื่อเลือกไฟล์ · รองรับการวางไฟล์จากคลิปบอร์ด",
     local: "ประมวลผลบนอุปกรณ์ของคุณ",
@@ -56,7 +57,7 @@ const copy = {
     browse: "เลือกไฟล์",
     popular: "เครื่องมือยอดนิยม",
     popularSub: "งาน PDF รูปภาพ และ QR Code ที่ใช้บ่อย โดยไม่เพิ่มขั้นตอนเกินจำเป็น",
-    mixed: "ไฟล์ PDF และรูปภาพที่เลือกพร้อมกันยังไม่มีเครื่องมือร่วมที่ปลอดภัย กรุณาลบหนึ่งประเภทหรือเพิ่มไฟล์ชนิดเดียวกัน",
+    mixed: "ไฟล์ต่างชนิดที่เลือกพร้อมกันยังไม่มีเครื่องมือร่วมที่ปลอดภัย กรุณาลบหนึ่งประเภทหรือเพิ่มไฟล์ชนิดเดียวกัน",
     noReady: "กรุณาลบไฟล์ที่ใช้ไม่ได้ก่อนเลือกเครื่องมือ",
     workload: "งานขนาดใหญ่",
     workloadBody: "การทำงานนี้อาจใช้หน่วยความจำมากบนอุปกรณ์นี้ FastFiles ไม่ระบุขนาดไฟล์สูงสุดตายตัว เพราะข้อจำกัดของเบราว์เซอร์แตกต่างกันในแต่ละอุปกรณ์",
@@ -73,6 +74,8 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
   "page-numbers": { en: "Add configurable page numbers locally", th: "เพิ่มเลขหน้าพร้อมกำหนดตำแหน่งได้" },
   "pdf-metadata": { en: "View, edit and clear supported document metadata", th: "ดู แก้ไข และล้างข้อมูลเอกสารที่รองรับ" },
   "pdf-text": { en: "Extract selectable PDF text as a local TXT file", th: "ดึงข้อความที่เลือกได้จาก PDF เป็นไฟล์ TXT" },
+  "word-to-pdf": { en: "Convert DOCX documents to PDF locally", th: "แปลงเอกสาร DOCX เป็น PDF ในเครื่อง" },
+  "pdf-to-word": { en: "Rebuild text-based PDFs as editable DOCX", th: "สร้าง PDF ที่มีข้อความกลับเป็น DOCX ที่แก้ไขได้" },
   "images-to-pdf": { en: "Turn JPG, PNG and WebP into PDF", th: "รวม JPG, PNG และ WebP เป็น PDF" },
   "pdf-to-images": { en: "Export PDF pages as PNG images", th: "แปลงหน้า PDF ออกเป็น PNG" },
   "image-convert": { en: "Convert JPG, PNG, WebP and supported AVIF", th: "แปลง JPG, PNG, WebP และ AVIF เมื่อเบราว์เซอร์รองรับ" },
@@ -193,7 +196,7 @@ export default function FastFilesApp() {
   const openTool = (tool: ToolDefinition) => {
     setActiveQr(false);
     const currentKind = groupKind(files);
-    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : null;
+    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : currentKind === "docx" ? "docx" : null;
     if (files.length && normalizedKind && tool.accepts.includes(normalizedKind)) setActiveTool(tool);
     else openPicker();
   };
@@ -215,8 +218,9 @@ export default function FastFilesApp() {
   }
 
   if (activeTool && files.length) {
+    const Workspace = activeTool.id === "word-to-pdf" || activeTool.id === "pdf-to-word" ? DocumentToolWorkspace : ToolWorkspace;
     return (
-      <ToolWorkspace
+      <Workspace
         tool={activeTool}
         files={files}
         language={language}
@@ -266,7 +270,7 @@ export default function FastFilesApp() {
         </div>
       </header>
 
-      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/avif,.pdf,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
+      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp,image/avif,.pdf,.docx,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
 
       <section className="hero-section">
         <div className="hero-wrap">
@@ -283,9 +287,9 @@ export default function FastFilesApp() {
           <button className={`drop-surface ${queue.length ? "has-files" : ""}`} onClick={openPicker}>
             <div className="drop-glow" aria-hidden="true" />
             {!queue.length ? (
-              <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span><span className="paste-hint muted">{language === "th" ? "หรือกด Ctrl+V วางจาก clipboard" : "or press Ctrl+V to paste from clipboard"}</span></div>
+              <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>DOCX</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span><span className="paste-hint muted">{language === "th" ? "หรือกด Ctrl+V วางจาก clipboard" : "or press Ctrl+V to paste from clipboard"}</span></div>
             ) : (
-              <div className="drop-content loaded"><span className="ready-badge"><span className="live-dot" /> {t.detected}</span><strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong><span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.imageCount} IMG</span><span className="browse-link">+ {t.newFiles}</span></div>
+              <div className="drop-content loaded"><span className="ready-badge"><span className="live-dot" /> {t.detected}</span><strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong><span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.docxCount} DOCX · {summary.imageCount} IMG</span><span className="browse-link">+ {t.newFiles}</span></div>
             )}
           </button>
         </div>
@@ -348,7 +352,7 @@ export default function FastFilesApp() {
         <div className="privacy-card"><div className="privacy-icon"><ShieldIcon /></div><div><span className="section-kicker">Local-first</span><h2>{language === "th" ? "ไฟล์และข้อมูลของคุณยังเป็นของคุณ" : "Your files and data stay yours."}</h2></div><div className="privacy-copy"><p>{language === "th" ? "เครื่องมือหลักของ FastFiles รวมถึง QR Generator ทำงานในเบราว์เซอร์ ไฟล์ต้นฉบับและข้อมูล QR ไม่ถูกเก็บถาวร และไม่มีบัญชีผู้ใช้" : "Core FastFiles tools, including QR generation, run in your browser. Original files and QR content are not permanently stored and no account is required."}</p><div className="privacy-points"><span>Local processing</span><span>No account</span><span>No permanent file storage</span></div></div></div>
       </section>
 
-      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>PDF + Image + QR tools designed for reliable everyday work.</p><span>v{APP_VERSION}</span></section>
+      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>Document + PDF + Image + QR tools designed for reliable everyday work.</p><span>v{APP_VERSION}</span></section>
       <footer className="section-shell"><span>© 2026 FastFiles</span><span>Private by design</span><span>Built for the browser</span></footer>
       {dragging && <div className="drag-overlay"><span className="drop-plus">+</span><strong>{language === "th" ? "วางไฟล์ได้ทุกที่" : "Drop files anywhere"}</strong><span>PDF · JPG · PNG · WEBP</span></div>}
     </main>

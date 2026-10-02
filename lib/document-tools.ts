@@ -450,6 +450,57 @@ export function reconstructPdfBlocks(lines: PdfLayoutLine[], pageWidth = A4_WIDT
   return blocks;
 }
 
+
+export async function convertPdfToDocxPreserveLayout(
+  file: File,
+  onProgress?: ConversionProgress,
+  options?: { signal?: AbortSignal; analysis?: PdfWordAnalysis; renderScale?: number },
+): Promise<{ blob: Blob; analysis: PdfWordAnalysis; pageCount: number }> {
+  const signal = options?.signal;
+  assertNotAborted(signal);
+  const analysis = options?.analysis ?? await analyzePdfForWord(file);
+  const pdfjs = await getPdfJs();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  const pages: Array<{ bytes: Uint8Array; width: number; height: number }> = [];
+  const renderScale = Math.max(1.25, Math.min(2.5, options?.renderScale ?? 1.75));
+
+  try {
+    for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
+      assertNotAborted(signal);
+      const page = await doc.getPage(pageNumber);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: renderScale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.ceil(viewport.width));
+      canvas.height = Math.max(1, Math.ceil(viewport.height));
+      const context = required2d(canvas);
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: context, viewport }).promise;
+      assertNotAborted(signal);
+      const blob = await canvasToBlob(canvas, "image/png", 1);
+      pages.push({
+        bytes: new Uint8Array(await blob.arrayBuffer()),
+        width: baseViewport.width,
+        height: baseViewport.height,
+      });
+      canvas.width = 1;
+      canvas.height = 1;
+      page.cleanup();
+      onProgress?.(pageNumber, doc.numPages, `Preserved page ${pageNumber} of ${doc.numPages}`);
+      await yieldToBrowser();
+    }
+  } finally {
+    await doc.destroy();
+  }
+
+  assertNotAborted(signal);
+  const blob = await buildLayoutPreservingDocx(pages);
+  assertNotAborted(signal);
+  return { blob, analysis, pageCount: pages.length };
+}
+
 export async function convertPdfToDocx(
   file: File,
   onProgress?: ConversionProgress,
@@ -509,7 +560,197 @@ export async function convertPdfToDocx(
   return { blob, analysis, extractedImages };
 }
 
+
 export async function convertDocxToPdf(
+  file: File,
+  onProgress?: ConversionProgress,
+  options?: { signal?: AbortSignal; analysis?: DocxAnalysis },
+): Promise<{ blob: Blob; pageCount: number; analysis: DocxAnalysis; layoutFidelity: "preserved" | "compatibility" }> {
+  const signal = options?.signal;
+  const analysis = options?.analysis ?? await analyzeDocx(file);
+  assertNotAborted(signal);
+
+  try {
+    const result = await convertDocxToPdfPreserveLayout(file, onProgress, { signal, analysis });
+    return { ...result, layoutFidelity: "preserved" };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    const fallback = await convertDocxToPdfLegacy(file, onProgress, { signal, analysis });
+    return { ...fallback, layoutFidelity: "compatibility" };
+  }
+}
+
+async function convertDocxToPdfPreserveLayout(
+  file: File,
+  onProgress?: ConversionProgress,
+  options?: { signal?: AbortSignal; analysis?: DocxAnalysis },
+): Promise<{ blob: Blob; pageCount: number; analysis: DocxAnalysis }> {
+  if (typeof document === "undefined") throw new Error("DOCX layout rendering requires a browser.");
+  const signal = options?.signal;
+  const analysis = options?.analysis ?? await analyzeDocx(file);
+  assertNotAborted(signal);
+
+  const { renderAsync } = await import("docx-preview");
+  const host = document.createElement("div");
+  const styleHost = document.createElement("div");
+  const bodyHost = document.createElement("div");
+  host.setAttribute("aria-hidden", "true");
+  Object.assign(host.style, {
+    position: "fixed",
+    left: "-100000px",
+    top: "0",
+    width: "1400px",
+    minHeight: "1000px",
+    background: "#fff",
+    pointerEvents: "none",
+    zIndex: "-1",
+  });
+  host.append(styleHost, bodyHost);
+  document.body.appendChild(host);
+
+  try {
+    const buffer = await file.arrayBuffer();
+    assertNotAborted(signal);
+    await renderAsync(buffer, bodyHost, styleHost, {
+      className: "ff-docx",
+      inWrapper: true,
+      ignoreWidth: false,
+      ignoreHeight: false,
+      ignoreFonts: false,
+      breakPages: true,
+      debug: false,
+      experimental: true,
+      trimXmlDeclaration: true,
+      renderHeaders: true,
+      renderFooters: true,
+      renderFootnotes: true,
+      renderEndnotes: true,
+      ignoreLastRenderedPageBreak: false,
+      useBase64URL: true,
+      renderChanges: false,
+      renderComments: false,
+      renderAltChunks: false,
+    });
+    assertNotAborted(signal);
+    if ("fonts" in document) await document.fonts.ready;
+    await waitForPaint();
+
+    const pageNodes = Array.from(bodyHost.querySelectorAll<HTMLElement>("section.ff-docx"));
+    const pages = pageNodes.length
+      ? pageNodes
+      : Array.from(bodyHost.querySelectorAll<HTMLElement>(".docx-wrapper > section"));
+
+    if (!pages.length) throw new Error("The DOCX renderer did not produce any pages.");
+
+    const pdf = await PDFDocument.create();
+    for (let index = 0; index < pages.length; index += 1) {
+      assertNotAborted(signal);
+      const pageNode = pages[index];
+      const rendered = await captureDocxPage(pageNode, styleHost, signal);
+      const embedded = await pdf.embedPng(await rendered.blob.arrayBuffer());
+      const page = pdf.addPage([rendered.widthPoints, rendered.heightPoints]);
+      page.drawImage(embedded, {
+        x: 0,
+        y: 0,
+        width: rendered.widthPoints,
+        height: rendered.heightPoints,
+      });
+      onProgress?.(index + 1, pages.length, `Preserved page ${index + 1} of ${pages.length}`);
+      await yieldToBrowser();
+    }
+
+    const pdfBytes = await pdf.save({ useObjectStreams: true });
+    return {
+      blob: bytesToBlob(pdfBytes, "application/pdf"),
+      pageCount: pages.length,
+      analysis,
+    };
+  } finally {
+    host.remove();
+  }
+}
+
+async function captureDocxPage(
+  page: HTMLElement,
+  styleHost: HTMLElement,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; widthPoints: number; heightPoints: number }> {
+  assertNotAborted(signal);
+  const rect = page.getBoundingClientRect();
+  const computed = getComputedStyle(page);
+  const widthPx = Math.max(1, rect.width || Number.parseFloat(computed.width) || 793.7);
+  const heightPx = Math.max(1, rect.height || Number.parseFloat(computed.height) || 1122.5);
+  const scale = Math.max(1, Math.min(2, Math.sqrt(10_000_000 / Math.max(1, widthPx * heightPx))));
+
+  const xhtml = document.createElement("div");
+  xhtml.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  xhtml.className = "docx-wrapper";
+  xhtml.style.width = `${widthPx}px`;
+  xhtml.style.height = `${heightPx}px`;
+  xhtml.style.margin = "0";
+  xhtml.style.padding = "0";
+  xhtml.style.background = "#fff";
+  for (const style of Array.from(styleHost.querySelectorAll("style"))) {
+    xhtml.appendChild(style.cloneNode(true));
+  }
+  const clone = page.cloneNode(true) as HTMLElement;
+  clone.style.margin = "0";
+  xhtml.appendChild(clone);
+
+  const serialized = new XMLSerializer().serializeToString(xhtml);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" viewBox="0 0 ${widthPx} ${heightPx}"><foreignObject x="0" y="0" width="100%" height="100%">${serialized}</foreignObject></svg>`;
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  try {
+    const image = await loadImage(url, signal);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.ceil(widthPx * scale));
+    canvas.height = Math.max(1, Math.ceil(heightPx * scale));
+    const context = required2d(canvas);
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await canvasToBlob(canvas, "image/png", 1);
+    canvas.width = 1;
+    canvas.height = 1;
+    return {
+      blob,
+      widthPoints: widthPx * 0.75,
+      heightPoints: heightPx * 0.75,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function loadImage(url: string, signal?: AbortSignal) {
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const abort = () => {
+      image.src = "";
+      const error = new Error("Conversion cancelled.");
+      error.name = "AbortError";
+      reject(error);
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    image.onload = () => {
+      signal?.removeEventListener("abort", abort);
+      resolve(image);
+    };
+    image.onerror = () => {
+      signal?.removeEventListener("abort", abort);
+      reject(new Error("Unable to capture the rendered DOCX page."));
+    };
+    image.src = url;
+  });
+}
+
+function waitForPaint() {
+  return new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+async function convertDocxToPdfLegacy(
   file: File,
   onProgress?: ConversionProgress,
   options?: { signal?: AbortSignal; analysis?: DocxAnalysis },
@@ -1101,6 +1342,78 @@ async function pdfImageToPng(raw: unknown): Promise<PdfImageAsset | null> {
   canvas.width = 1;
   canvas.height = 1;
   return { bytes: new Uint8Array(await blob.arrayBuffer()), width, height };
+}
+
+
+async function buildLayoutPreservingDocx(pages: Array<{ bytes: Uint8Array; width: number; height: number }>) {
+  if (!pages.length) throw new Error("The PDF does not contain any pages.");
+  const zip = new JSZip();
+  const media = pages.map((page, index) => ({
+    id: `rIdPage${index + 1}`,
+    target: `media/page-${index + 1}.png`,
+    bytes: page.bytes,
+    width: page.width,
+    height: page.height,
+    docPrId: index + 1,
+  }));
+
+  const bodyParts: string[] = [];
+  pages.forEach((page, index) => {
+    bodyParts.push(wordPageImageAnchor(media[index].id, page.width, page.height, media[index].docPrId));
+    if (index < pages.length - 1) {
+      bodyParts.push(wordSectionBreak(page.width, page.height));
+    }
+  });
+
+  const last = pages.at(-1)!;
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="${WORD_NS}" xmlns:r="${REL_NS}" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+  <w:body>
+    ${bodyParts.join("\n")}
+    ${wordSectPr(last.width, last.height, false)}
+  </w:body>
+</w:document>`;
+
+  const imageRelationships = media.map((image) =>
+    `<Relationship Id="${image.id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${image.target}"/>`
+  ).join("");
+  const documentRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  ${imageRelationships}
+</Relationships>`;
+
+  zip.file("[Content_Types].xml", contentTypesXml(true));
+  zip.folder("_rels")?.file(".rels", rootRelsXml());
+  zip.folder("docProps")?.file("core.xml", corePropsXml());
+  zip.folder("docProps")?.file("app.xml", appPropsXml());
+  zip.folder("word")?.file("document.xml", documentXml);
+  zip.folder("word")?.file("styles.xml", stylesXml());
+  zip.folder("word")?.folder("_rels")?.file("document.xml.rels", documentRels);
+  media.forEach((image) => zip.folder("word")?.file(image.target, copyBytes(image.bytes)));
+
+  return await zip.generateAsync({
+    type: "blob",
+    mimeType: DOCX_MIME,
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+}
+
+function wordPageImageAnchor(relationshipId: string, widthPoints: number, heightPoints: number, docPrId: number) {
+  const cx = Math.max(1, Math.round(widthPoints * EMU_PER_POINT));
+  const cy = Math.max(1, Math.round(heightPoints * EMU_PER_POINT));
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="1" w:lineRule="exact"/></w:pPr><w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${docPrId}" name="FastFiles preserved page ${docPrId}"/><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="page-${docPrId}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r></w:p>`;
+}
+
+function wordSectionBreak(widthPoints: number, heightPoints: number) {
+  return `<w:p><w:pPr>${wordSectPr(widthPoints, heightPoints, true)}</w:pPr></w:p>`;
+}
+
+function wordSectPr(widthPoints: number, heightPoints: number, nextPage: boolean) {
+  const widthTwips = Math.max(1, Math.round(widthPoints * TWIPS_PER_POINT));
+  const heightTwips = Math.max(1, Math.round(heightPoints * TWIPS_PER_POINT));
+  return `<w:sectPr>${nextPage ? '<w:type w:val="nextPage"/>' : ""}<w:pgSz w:w="${widthTwips}" w:h="${heightTwips}"/><w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>`;
 }
 
 async function buildEditableDocx(pages: PdfPageModel[]) {

@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateDocxPageSliceCount,
   detectPdfColumns,
   groupPdfTextItems,
   reconstructPdfBlocks,
   replaceExtension,
   type PdfLayoutLine,
 } from "../../lib/document-tools";
+
+describe("calculateDocxPageSliceCount", () => {
+  it("keeps a normal rendered page as one source-sized page", () => {
+    expect(calculateDocxPageSliceCount(1122.52, 1122.52)).toBe(1);
+    expect(calculateDocxPageSliceCount(1123.2, 1122.52)).toBe(1);
+  });
+
+  it("splits overflow into additional source-sized pages", () => {
+    expect(calculateDocxPageSliceCount(2245.04, 1122.52)).toBe(2);
+    expect(calculateDocxPageSliceCount(2800, 1122.52)).toBe(3);
+  });
+});
 
 describe("replaceExtension", () => {
   it("replaces the input extension without duplicating it", () => {

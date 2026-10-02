@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ToolDefinition } from "@/lib/tools";
 import { formatBytes } from "@/lib/download";
 import ResultCenter, { type WorkspaceResult } from "./ResultCenter";
@@ -82,7 +82,12 @@ export default function DocumentToolWorkspace({
   const [error, setError] = useState("");
   const [result, setResult] = useState<WorkspaceResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
   const isWordToPdf = tool.id === "word-to-pdf";
+
+  useEffect(() => () => {
+    abortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -114,6 +119,8 @@ export default function DocumentToolWorkspace({
     setBusy(true);
     setError("");
     setResult(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       if (isWordToPdf && analysis.type === "docx") {
@@ -129,7 +136,7 @@ export default function DocumentToolWorkspace({
             total,
             detail,
           });
-        });
+        }, { signal: controller.signal, analysis: analysis.value });
         const name = replaceExtension(file.name, "pdf");
         setResult({
           label: language === "th" ? "แปลง Word เป็น PDF แล้ว" : "WORD → PDF COMPLETE",
@@ -158,7 +165,7 @@ export default function DocumentToolWorkspace({
             total,
             detail,
           });
-        });
+        }, { signal: controller.signal, analysis: analysis.value });
         const name = replaceExtension(file.name, "docx");
         setResult({
           label: language === "th" ? "แปลง PDF เป็น Word แล้ว" : "PDF → WORD COMPLETE",
@@ -171,8 +178,11 @@ export default function DocumentToolWorkspace({
         });
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : language === "th" ? "ไม่สามารถแปลงเอกสารนี้ได้" : "Unable to convert this document.");
+      if (!(caught instanceof Error && caught.name === "AbortError")) {
+        setError(caught instanceof Error ? caught.message : language === "th" ? "ไม่สามารถแปลงเอกสารนี้ได้" : "Unable to convert this document.");
+      }
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setProgress(null);
       setBusy(false);
     }
@@ -290,6 +300,11 @@ export default function DocumentToolWorkspace({
                 ? (language === "th" ? "แปลงเป็น PDF" : "CONVERT TO PDF")
                 : (language === "th" ? "แปลงเป็น Word" : "CONVERT TO WORD")} ↗
           </button>
+          {busy && (
+            <button className="secondary-button" onClick={() => abortRef.current?.abort()}>
+              {language === "th" ? "ยกเลิก" : "CANCEL"}
+            </button>
+          )}
         </aside>
       </div>
 

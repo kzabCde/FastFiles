@@ -642,27 +642,33 @@ async function convertDocxToPdfPreserveLayout(
 
     if (!pages.length) throw new Error("The DOCX renderer did not produce any pages.");
 
+    const pagePlans = pages.map((pageNode) => measureDocxRenderedPage(pageNode, analysis));
+    const totalPages = pagePlans.reduce((sum, plan) => sum + plan.sliceCount, 0);
     const pdf = await PDFDocument.create();
-    for (let index = 0; index < pages.length; index += 1) {
-      assertNotAborted(signal);
-      const pageNode = pages[index];
-      const rendered = await captureDocxPage(pageNode, styleHost, signal);
-      const embedded = await pdf.embedPng(await rendered.blob.arrayBuffer());
-      const page = pdf.addPage([rendered.widthPoints, rendered.heightPoints]);
-      page.drawImage(embedded, {
-        x: 0,
-        y: 0,
-        width: rendered.widthPoints,
-        height: rendered.heightPoints,
-      });
-      onProgress?.(index + 1, pages.length, `Preserved page ${index + 1} of ${pages.length}`);
-      await yieldToBrowser();
+    let outputPageNumber = 0;
+
+    for (const plan of pagePlans) {
+      for (let sliceIndex = 0; sliceIndex < plan.sliceCount; sliceIndex += 1) {
+        assertNotAborted(signal);
+        const rendered = await captureDocxPageSlice(plan, sliceIndex, signal);
+        const embedded = await pdf.embedPng(await rendered.blob.arrayBuffer());
+        const page = pdf.addPage([rendered.widthPoints, rendered.heightPoints]);
+        page.drawImage(embedded, {
+          x: 0,
+          y: 0,
+          width: rendered.widthPoints,
+          height: rendered.heightPoints,
+        });
+        outputPageNumber += 1;
+        onProgress?.(outputPageNumber, totalPages, `Preserved page ${outputPageNumber} of ${totalPages}`);
+        await yieldToBrowser();
+      }
     }
 
     const pdfBytes = await pdf.save({ useObjectStreams: true });
     return {
       blob: bytesToBlob(pdfBytes, "application/pdf"),
-      pageCount: pages.length,
+      pageCount: totalPages,
       analysis,
     };
   } finally {
@@ -670,30 +676,74 @@ async function convertDocxToPdfPreserveLayout(
   }
 }
 
-async function captureDocxPage(
-  page: HTMLElement,
-  _styleHost: HTMLElement,
+type DocxRenderedPagePlan = {
+  page: HTMLElement;
+  widthPx: number;
+  pageHeightPx: number;
+  renderedHeightPx: number;
+  widthPoints: number;
+  heightPoints: number;
+  sliceCount: number;
+};
+
+export function calculateDocxPageSliceCount(renderedHeightPx: number, pageHeightPx: number) {
+  if (!Number.isFinite(renderedHeightPx) || !Number.isFinite(pageHeightPx) || pageHeightPx <= 0) return 1;
+  const safeRenderedHeight = Math.max(pageHeightPx, renderedHeightPx);
+  const roundingTolerance = Math.max(1, pageHeightPx * 0.002);
+  return Math.max(1, Math.ceil((safeRenderedHeight - roundingTolerance) / pageHeightPx));
+}
+
+function measureDocxRenderedPage(page: HTMLElement, analysis: DocxAnalysis): DocxRenderedPagePlan {
+  const rect = page.getBoundingClientRect();
+  const computed = getComputedStyle(page);
+  const fallbackWidthPx = analysis.pageWidth / 0.75;
+  const fallbackHeightPx = analysis.pageHeight / 0.75;
+  const cssMinHeightPx = Number.parseFloat(computed.minHeight);
+  const widthPx = Math.max(1, rect.width || Number.parseFloat(computed.width) || fallbackWidthPx);
+  const pageHeightPx = Math.max(
+    1,
+    Number.isFinite(cssMinHeightPx) && cssMinHeightPx > 0 ? cssMinHeightPx : fallbackHeightPx,
+  );
+  const renderedHeightPx = Math.max(pageHeightPx, rect.height, page.scrollHeight);
+  const sliceCount = calculateDocxPageSliceCount(renderedHeightPx, pageHeightPx);
+
+  return {
+    page,
+    widthPx,
+    pageHeightPx,
+    renderedHeightPx,
+    widthPoints: widthPx * 0.75,
+    heightPoints: pageHeightPx * 0.75,
+    sliceCount,
+  };
+}
+
+async function captureDocxPageSlice(
+  plan: DocxRenderedPagePlan,
+  sliceIndex: number,
   signal?: AbortSignal,
 ): Promise<{ blob: Blob; widthPoints: number; heightPoints: number }> {
   assertNotAborted(signal);
-  const rect = page.getBoundingClientRect();
-  const computed = getComputedStyle(page);
-  const widthPx = Math.max(1, rect.width || Number.parseFloat(computed.width) || 793.7);
-  const heightPx = Math.max(1, rect.height || Number.parseFloat(computed.height) || 1122.5);
-  const scale = Math.max(1, Math.min(2, Math.sqrt(10_000_000 / Math.max(1, widthPx * heightPx))));
+  const scale = Math.max(1, Math.min(2, Math.sqrt(10_000_000 / Math.max(1, plan.widthPx * plan.pageHeightPx))));
   const { default: html2canvas } = await import("html2canvas");
   assertNotAborted(signal);
 
-  const canvas = await html2canvas(page, {
+  const sliceTopPx = sliceIndex * plan.pageHeightPx;
+  const canvas = await html2canvas(plan.page, {
     backgroundColor: "#ffffff",
     scale,
     logging: false,
     useCORS: false,
     allowTaint: false,
-    width: Math.ceil(widthPx),
-    height: Math.ceil(heightPx),
-    windowWidth: Math.max(document.documentElement.clientWidth, Math.ceil(widthPx)),
-    windowHeight: Math.max(document.documentElement.clientHeight, Math.ceil(heightPx)),
+    x: 0,
+    y: Math.max(0, sliceTopPx),
+    width: Math.ceil(plan.widthPx),
+    height: Math.ceil(plan.pageHeightPx),
+    windowWidth: Math.max(document.documentElement.clientWidth, Math.ceil(plan.widthPx)),
+    windowHeight: Math.max(
+      document.documentElement.clientHeight,
+      Math.ceil(Math.min(plan.renderedHeightPx, plan.pageHeightPx * 2)),
+    ),
     scrollX: 0,
     scrollY: 0,
     removeContainer: true,
@@ -704,8 +754,8 @@ async function captureDocxPage(
   canvas.height = 1;
   return {
     blob,
-    widthPoints: widthPx * 0.75,
-    heightPoints: heightPx * 0.75,
+    widthPoints: plan.widthPoints,
+    heightPoints: plan.heightPoints,
   };
 }
 

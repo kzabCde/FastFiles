@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — Document conversion
+
+### Added
+
+- Local DOCX → PDF conversion with DOCX package validation, page geometry, common text formatting, page breaks, simple tables, embedded images, headers/footers, progress reporting, and cancellation.
+- Local text-based PDF → editable DOCX reconstruction using PDF.js text geometry, heading inference, simple-table heuristics, multi-column reading order, page breaks, and best-effort image extraction.
+- DOCX file intake, Word/PDF converter routes, smart actions, quality analysis, and explicit legacy `.doc` guidance.
+- Scan detection that blocks misleading empty DOCX output when OCR is required.
+- Unit and cross-browser Playwright coverage for the new document converters.
+
+### Changed
+
+- FastFiles file intake and queue now recognize DOCX alongside PDF and image files.
+- Document conversion reuses the existing local-first JSZip, PDF.js, and pdf-lib stack without adding a cloud conversion service or database.
+
+### Known limitations
+
+- Word → PDF uses page rasterization to favor visual fidelity, so selectable PDF text is not guaranteed.
+- Scanned PDF → Word requires OCR and is reported as unsupported rather than silently generating an empty Word file.
+- Complex Word/PDF layout reconstruction remains best-effort.
+
 ## 0.3.0 — 2026-09-28
 
 ### Added

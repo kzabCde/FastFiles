@@ -580,6 +580,46 @@ footer span:last-child { justify-self: end; }
 .estimate span { display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 750; }
 .estimate strong { color: var(--text); font-size: 14px; }
 
+.document-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.document-mode-card {
+  min-width: 0;
+  min-height: 118px;
+  padding: 13px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.document-mode-card:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong)); }
+.document-mode-card.selected {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--line-strong));
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.document-mode-card:disabled { opacity: .52; cursor: not-allowed; }
+.document-mode-card strong { font-size: 11px; }
+.document-mode-card span { color: var(--accent-ink); font-size: 9px; font-weight: 750; line-height: 1.35; }
+.document-mode-card small { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.inline-guidance {
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .document-mode-grid { grid-template-columns: 1fr; }
+  .document-mode-card { min-height: 0; }
+}
+
 .progress-panel, .error-panel, .result-panel { position: fixed; right: 22px; bottom: 22px; z-index: 80; width: min(410px, calc(100vw - 44px)); padding: 17px; display: grid; gap: 11px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-md); }
 .progress-meta { display: flex; justify-content: space-between; font-size: 10px; font-weight: 750; }
 .progress-track { height: 6px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }

@@ -6,7 +6,9 @@
 .queue-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 .secondary-button.compact { padding:9px 12px; min-height:auto; }
 .queue-list { display:grid; gap:8px; padding:16px 0 2px; }
-.queue-row { display:grid; grid-template-columns:28px 52px minmax(0,1fr) auto 32px; align-items:center; gap:12px; min-height:72px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background:var(--bg); transition:border-color .15s ease, background .15s ease; }
+.queue-row { display:grid; grid-template-columns:28px 52px minmax(0,1fr) auto 32px; align-items:center; gap:12px; min-height:72px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background:var(--bg); transition:border-color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease; }
+.queue-row.is-dragging { opacity: 0.45; border-style: dashed; border-color: var(--accent); }
+.queue-row.drag-over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--bg)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); transform: translateY(-1px); }
 .queue-row.status-error { border-color:color-mix(in srgb, var(--danger) 32%, var(--line)); background:color-mix(in srgb, var(--danger) 5%, var(--bg)); }
 .queue-row.status-warning { border-color:color-mix(in srgb, #c28a20 32%, var(--line)); }
 .drag-handle { width:28px; height:34px; border:0; border-radius:8px; background:transparent; display:grid; place-content:center; gap:3px; cursor:grab; }
@@ -225,6 +227,8 @@
 .img-manage-container { width: 100%; padding: 6px 0; }
 .img-manage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; max-height: 520px; overflow-y: auto; padding: 4px 2px; }
 .img-manage-card { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 8px; display: grid; gap: 6px; cursor: grab; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.img-manage-card.is-dragging { opacity: 0.45; border-style: dashed; border-color: var(--accent); }
+.img-manage-card.drag-over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); transform: translateY(-3px) scale(1.02); }
 .img-manage-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--line-strong); }
 .img-manage-card:active { cursor: grabbing; }
 .card-thumb-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; background: var(--surface-2); }

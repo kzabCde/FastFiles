@@ -8,7 +8,7 @@ import QRGenerator from "./QRGenerator";
 import { TOOLS, TOOL_CATEGORIES, groupKind, searchTools, toolsFor, type ToolDefinition } from "@/lib/tools";
 import { formatBytes } from "@/lib/download";
 import { APP_VERSION } from "@/lib/app-info";
-import { inspectFiles, isLargeWorkload, summarizeQueue, usableFiles, type FileQueueItem } from "@/lib/file-intake";
+import { inspectFiles, isExternalFileDrag, isLargeWorkload, summarizeQueue, usableFiles, type FileQueueItem } from "@/lib/file-intake";
 
 type Language = "en" | "th";
 type Theme = "system" | "light" | "dark";
@@ -233,10 +233,30 @@ export default function FastFilesApp() {
   return (
     <main
       className={`app-shell ${dragging ? "global-dragging" : ""}`}
-      onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }}
-      onDrop={(event) => { event.preventDefault(); setDragging(false); void acceptFiles([...event.dataTransfer.files]); }}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget === event.target) {
+          setDragging(false);
+        }
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        if (isExternalFileDrag(event) || (event.dataTransfer?.files && event.dataTransfer.files.length > 0)) {
+          void acceptFiles([...event.dataTransfer.files]);
+        }
+      }}
     >
       <header className="site-header">
         <div className="header-inner">

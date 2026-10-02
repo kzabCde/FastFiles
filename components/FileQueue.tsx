@@ -56,6 +56,9 @@ export default function FileQueue({
   onClear: () => void;
 }) {
   const dragIndex = useRef(-1);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+
   const t = language === "th" ? {
     title: "คิวไฟล์",
     add: "เพิ่มไฟล์",
@@ -103,20 +106,61 @@ export default function FileQueue({
       <div className="queue-list">
         {items.map((item, index) => (
           <div
-            className={`queue-row status-${item.status}`}
+            className={`queue-row status-${item.status}${dragOverIndex === index ? " drag-over" : ""}${draggingIndex === index ? " is-dragging" : ""}`}
             key={item.id}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => {
-              if (dragIndex.current >= 0 && dragIndex.current !== index) onReorder(dragIndex.current, index);
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = "move";
+              }
+              if (dragOverIndex !== index) {
+                setDragOverIndex(index);
+              }
+            }}
+            onDragLeave={(event) => {
+              if (event.currentTarget === event.target) {
+                setDragOverIndex((curr) => (curr === index ? null : curr));
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const from = dragIndex.current;
               dragIndex.current = -1;
+              setDraggingIndex(null);
+              setDragOverIndex(null);
+              if (from >= 0 && from !== index) {
+                onReorder(from, index);
+              }
             }}
           >
             <button
+              type="button"
               className="drag-handle"
               draggable
               aria-label={`${language === "th" ? "ลากเพื่อเรียง" : "Drag to reorder"} ${item.file.name}`}
-              onDragStart={() => { dragIndex.current = index; }}
-              onDragEnd={() => { dragIndex.current = -1; }}
+              onDragStart={(event) => {
+                dragIndex.current = index;
+                setDraggingIndex(index);
+                event.dataTransfer.setData("application/x-fastfiles-reorder", String(index));
+                event.dataTransfer.effectAllowed = "move";
+                event.stopPropagation();
+              }}
+              onDragEnd={() => {
+                dragIndex.current = -1;
+                setDraggingIndex(null);
+                setDragOverIndex(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowUp" && index > 0) {
+                  event.preventDefault();
+                  onReorder(index, index - 1);
+                } else if (event.key === "ArrowDown" && index < items.length - 1) {
+                  event.preventDefault();
+                  onReorder(index, index + 1);
+                }
+              }}
             >
               <span /> <span /> <span />
             </button>

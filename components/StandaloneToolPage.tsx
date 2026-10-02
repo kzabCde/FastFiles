@@ -6,7 +6,7 @@ import FastFilesMark from "./FastFilesMark";
 import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
 import { kindOf, type ToolDefinition } from "@/lib/tools";
-import { fileIssueMessage, inspectFiles } from "@/lib/file-intake";
+import { fileIssueMessage, inspectFiles, isExternalFileDrag } from "@/lib/file-intake";
 
 type Language = "en" | "th";
 type Theme = "system" | "light" | "dark";
@@ -140,13 +140,29 @@ export default function StandaloneToolPage({ tool }: Props) {
   return (
     <main
       className={`app-shell ${dragging ? "global-dragging" : ""}`}
-      onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget === event.target) {
+          setDragging(false);
+        }
+      }}
       onDrop={(event) => {
         event.preventDefault();
         setDragging(false);
-        void acceptFiles([...event.dataTransfer.files]);
+        if (isExternalFileDrag(event) || (event.dataTransfer?.files && event.dataTransfer.files.length > 0)) {
+          void acceptFiles([...event.dataTransfer.files]);
+        }
       }}
     >
       <header className="site-header">

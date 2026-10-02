@@ -79,6 +79,8 @@ export default function ImagesToPdfWorkspace({
   const [fit, setFit] = useState<ImagesToPdfFit>("contain");
   const [viewMode, setViewMode] = useState<"sheet" | "manage">("sheet");
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const dragItem = useRef<number | null>(null);
 
@@ -372,17 +374,45 @@ export default function ImagesToPdfWorkspace({
                 return (
                   <div
                     key={`${file.name}-${index}`}
-                    className="img-manage-card"
+                    className={`img-manage-card ${dragOverIndex === index ? "drag-over" : ""} ${draggingIndex === index ? "is-dragging" : ""}`}
                     draggable
-                    onDragStart={() => {
+                    onDragStart={(e) => {
                       dragItem.current = index;
+                      setDraggingIndex(index);
+                      e.dataTransfer.setData("application/x-fastfiles-reorder", String(index));
+                      e.dataTransfer.effectAllowed = "move";
+                      e.stopPropagation();
                     }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => {
-                      if (dragItem.current !== null && dragItem.current !== index) {
-                        moveFile(dragItem.current, index);
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer) {
+                        e.dataTransfer.dropEffect = "move";
                       }
+                      if (dragOverIndex !== index) {
+                        setDragOverIndex(index);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget === e.target) {
+                        setDragOverIndex((curr) => (curr === index ? null : curr));
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const from = dragItem.current;
                       dragItem.current = null;
+                      setDraggingIndex(null);
+                      setDragOverIndex(null);
+                      if (from !== null && from !== index) {
+                        moveFile(from, index);
+                      }
+                    }}
+                    onDragEnd={() => {
+                      dragItem.current = null;
+                      setDraggingIndex(null);
+                      setDragOverIndex(null);
                     }}
                   >
                     <div className="card-thumb-wrap">

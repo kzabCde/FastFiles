@@ -135,3 +135,10 @@ function mimeMatchesExtension(mime: string, extension: string) {
   if (mime === "image/avif") return extension === "avif";
   return true;
 }
+
+export function isExternalFileDrag(event: { dataTransfer: DataTransfer | null }): boolean {
+  if (!event.dataTransfer) return false;
+  const types = Array.from(event.dataTransfer.types ?? []);
+  return types.includes("Files") && !types.some((t) => t.startsWith("application/x-fastfiles-"));
+}
+

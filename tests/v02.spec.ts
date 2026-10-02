@@ -120,6 +120,20 @@ test("queue supports drag reorder", async ({ page, browserName }) => {
   await expect(page.locator(".queue-row")).toHaveCount(2);
   await page.locator(".drag-handle").first().dragTo(page.locator(".queue-row").nth(1));
   await expect(page.locator(".queue-row").first()).toContainText("b.pdf");
+  await expect(page.locator(".drag-overlay")).toHaveCount(0);
+});
+
+test("queue supports keyboard reordering without drag overlay", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [
+    { name: "item1.png", mimeType: "image/png", buffer: png },
+    { name: "item2.png", mimeType: "image/png", buffer: png },
+  ]);
+  await expect(page.locator(".queue-row")).toHaveCount(2);
+  await page.locator(".drag-handle").first().focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator(".queue-row").first()).toContainText("item2.png");
+  await expect(page.locator(".drag-overlay")).toHaveCount(0);
 });
 
 test("Thai and emoji filenames survive intake", async ({ page }) => {

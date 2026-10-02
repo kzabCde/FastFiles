@@ -633,7 +633,7 @@ export async function convertDocxToPdf(
           context.lineWidth = 0.7;
           context.strokeRect(x, y, cellWidth, rowHeight);
           context.fillStyle = "#111111";
-          context.font = '10pt Arial, "Noto Sans Thai", sans-serif';
+          context.font = '10px Arial, "Noto Sans Thai", sans-serif';
           const lines = rowLines[column] ?? [cell];
           lines.forEach((line, lineIndex) => context.fillText(line, x + 6, y + 15 + lineIndex * 14));
         });
@@ -836,7 +836,6 @@ function layoutDocxLines(
         continue;
       }
       context.save();
-      context.scale(canvasCurrentScale(context), canvasCurrentScale(context));
       context.font = font;
       const tokenParts = splitTokenToFit(context, raw, maxWidth);
       context.restore();
@@ -933,7 +932,7 @@ function splitTokenToFit(context: CanvasRenderingContext2D, token: string, maxWi
 }
 
 function cssFont(size: number, bold: boolean, italic: boolean) {
-  return `${italic ? "italic " : ""}${bold ? "700 " : "400 "}${Math.max(6, size)}pt Arial, "Noto Sans Thai", "Tahoma", sans-serif`;
+  return `${italic ? "italic " : ""}${bold ? "700 " : "400 "}${Math.max(6, size)}px Arial, "Noto Sans Thai", "Tahoma", sans-serif`;
 }
 
 function createPageCanvas(width: number, height: number, scale: number) {
@@ -955,12 +954,8 @@ function required2d(canvas: HTMLCanvasElement) {
   return context;
 }
 
-function canvasCurrentScale(_context: CanvasRenderingContext2D) {
-  return 1;
-}
-
 function drawHeaderFooter(context: CanvasRenderingContext2D, parsed: ParsedDocx) {
-  context.font = '9pt Arial, "Noto Sans Thai", sans-serif';
+  context.font = '9px Arial, "Noto Sans Thai", sans-serif';
   context.fillStyle = "#59625d";
   context.textBaseline = "top";
   if (parsed.header) {

@@ -199,6 +199,7 @@ export async function analyzePdfForWord(file: File): Promise<PdfWordAnalysis> {
   const pdfjs = await getPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  const pageCount = doc.numPages;
   let textCharacters = 0;
   let images = 0;
   let possibleColumns = false;
@@ -207,7 +208,7 @@ export async function analyzePdfForWord(file: File): Promise<PdfWordAnalysis> {
   let pageHeight = A4_HEIGHT;
 
   try {
-    for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
       const page = await doc.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1 });
       if (pageNumber === 1) {
@@ -216,15 +217,18 @@ export async function analyzePdfForWord(file: File): Promise<PdfWordAnalysis> {
       }
       const content = await page.getTextContent();
       const items = content.items
-        .filter((item): item is typeof item & { str: string } => "str" in item)
-        .map((item) => ({
-          str: item.str,
-          transform: item.transform,
-          width: "width" in item ? Number(item.width) : undefined,
-          height: "height" in item ? Number(item.height) : undefined,
-          fontName: "fontName" in item ? String(item.fontName) : undefined,
-          hasEOL: "hasEOL" in item ? Boolean(item.hasEOL) : undefined,
-        }));
+        .filter((item) => "str" in item && "transform" in item)
+        .map((item) => {
+          const textItem = item as unknown as PdfTextItemInput;
+          return {
+            str: textItem.str,
+            transform: textItem.transform,
+            width: textItem.width,
+            height: textItem.height,
+            fontName: textItem.fontName,
+            hasEOL: textItem.hasEOL,
+          };
+        });
       textCharacters += items.reduce((sum, item) => sum + item.str.trim().length, 0);
       const lines = groupPdfTextItems(items, viewport.width);
       possibleColumns ||= detectPdfColumns(lines, viewport.width) > 1;
@@ -238,7 +242,7 @@ export async function analyzePdfForWord(file: File): Promise<PdfWordAnalysis> {
   }
 
   const hasText = textCharacters > 0;
-  const likelyScanned = textCharacters < Math.max(12, doc.numPages * 8) && images > 0;
+  const likelyScanned = textCharacters < Math.max(12, pageCount * 8) && images > 0;
   const quality: ConversionQuality = !hasText || likelyScanned
     ? "limited"
     : possibleColumns || possibleTables || images > 3
@@ -246,7 +250,7 @@ export async function analyzePdfForWord(file: File): Promise<PdfWordAnalysis> {
       : "high";
 
   return {
-    pages: doc.numPages,
+    pages: pageCount,
     hasText,
     textCharacters,
     images,
@@ -377,7 +381,7 @@ export function detectPdfColumns(lines: PdfLayoutLine[], pageWidth: number) {
 export function reconstructPdfBlocks(lines: PdfLayoutLine[], pageWidth = A4_WIDTH): PdfDocumentBlock[] {
   if (!lines.length) return [];
   const columnCount = detectPdfColumns(lines, pageWidth);
-  const ordered = orderLines(lines, pageWidth, columnCount);
+  const ordered: PdfLayoutLine[] = orderLines(lines, pageWidth, columnCount);
   const sizes = ordered.map((line) => line.fontSize).filter((size) => Number.isFinite(size));
   const baseFont = median(sizes) || 11;
   const tableRuns = detectTableRuns(ordered);
@@ -467,15 +471,18 @@ export async function convertPdfToDocx(
       const viewport = page.getViewport({ scale: 1 });
       const content = await page.getTextContent();
       const items = content.items
-        .filter((item): item is typeof item & { str: string } => "str" in item)
-        .map((item) => ({
-          str: item.str,
-          transform: item.transform,
-          width: "width" in item ? Number(item.width) : undefined,
-          height: "height" in item ? Number(item.height) : undefined,
-          fontName: "fontName" in item ? String(item.fontName) : undefined,
-          hasEOL: "hasEOL" in item ? Boolean(item.hasEOL) : undefined,
-        }));
+        .filter((item) => "str" in item && "transform" in item)
+        .map((item) => {
+          const textItem = item as unknown as PdfTextItemInput;
+          return {
+            str: textItem.str,
+            transform: textItem.transform,
+            width: textItem.width,
+            height: textItem.height,
+            fontName: textItem.fontName,
+            hasEOL: textItem.hasEOL,
+          };
+        });
       const lines = groupPdfTextItems(items, viewport.width);
       const blocks = reconstructPdfBlocks(lines, viewport.width);
       const images = await extractPageImages(page, pdfjs).catch(() => [] as PdfImageAsset[]);

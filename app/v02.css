@@ -220,6 +220,8 @@
 .quick-sort-actions button:hover { background: var(--surface); border-color: var(--line-strong); }
 
 .img-sheet-container { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 12px 0; min-height: 480px; }
+.img-sheet-container[hidden],
+.img-manage-container[hidden] { display: none; }
 .sheet-pagination { display: inline-flex; align-items: center; gap: 12px; padding: 4px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); box-shadow: 0 2px 6px rgba(0,0,0,.04); }
 .page-nav-btn { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--surface); color: var(--text); font-size: 11px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.08); transition: transform .12s ease; }
 .page-nav-btn:hover:not(:disabled) { transform: scale(1.1); }
@@ -256,6 +258,10 @@
 .card-reorder-actions button { flex: 1; min-height: 24px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); font-size: 10px; cursor: pointer; color: var(--text); transition: background .12s ease; }
 .card-reorder-actions button:hover:not(:disabled) { background: var(--surface); }
 .card-reorder-actions button:disabled { opacity: .3; cursor: not-allowed; }
+
+@media (max-width: 980px) {
+  .img-to-pdf-workspace { grid-template-columns: 1fr; }
+}
 
 .control-group { display: grid; gap: 8px; }
 .control-label { font-size: 10px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }

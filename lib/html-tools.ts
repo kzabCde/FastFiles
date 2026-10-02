@@ -111,8 +111,14 @@ export async function htmlFrameToPdf(
   const documentNode = frame.contentDocument;
   if (!documentNode?.documentElement || !documentNode.body) throw new Error("The HTML preview is not ready yet.");
 
-  await documentNode.fonts?.ready;
-  await Promise.all([...documentNode.images].map((image) => image.decode().catch(() => undefined)));
+  // WebKit can leave font/image readiness promises pending inside a sandboxed
+  // srcdoc frame. Rendering may safely continue with the browser fallbacks, so
+  // bound this preparation step instead of allowing a local conversion to hang.
+  await settleWithin(documentNode.fonts?.ready, 3_000);
+  await settleWithin(
+    Promise.all([...documentNode.images].map((image) => image.decode().catch(() => undefined))),
+    3_000,
+  );
 
   const root = documentNode.documentElement;
   const body = documentNode.body;
@@ -133,27 +139,30 @@ export async function htmlFrameToPdf(
   const requestedScale = options.quality === "sharp" ? 2 : options.quality === "small" ? 1 : 1.5;
   const safeScale = Math.max(0.75, Math.min(requestedScale, Math.sqrt(12_000_000 / Math.max(1, contentWidth * sliceHeight))));
   const jpegQuality = options.quality === "small" ? 0.68 : options.quality === "sharp" ? 0.94 : 0.84;
-  const { default: html2canvas } = await import("html2canvas");
+  const isWebKit = /AppleWebKit/i.test(navigator.userAgent) && !("chrome" in window);
+  const html2canvas = isWebKit ? undefined : (await import("html2canvas")).default;
   const output = await PDFDocument.create();
 
   for (let index = 0; index < totalPages; index += 1) {
     const offsetY = index * sliceHeight;
     const currentHeight = Math.min(sliceHeight, contentHeight - offsetY);
-    const canvas = await html2canvas(body, {
-      backgroundColor: "#ffffff",
-      logging: false,
-      scale: safeScale,
-      useCORS: false,
-      allowTaint: false,
-      x: 0,
-      y: offsetY,
-      width: contentWidth,
-      height: currentHeight,
-      windowWidth: contentWidth,
-      windowHeight: contentHeight,
-      scrollX: 0,
-      scrollY: 0,
-    });
+    const canvas = html2canvas
+      ? await html2canvas(body, {
+        backgroundColor: "#ffffff",
+        logging: false,
+        scale: safeScale,
+        useCORS: false,
+        allowTaint: false,
+        x: 0,
+        y: offsetY,
+        width: contentWidth,
+        height: currentHeight,
+        windowWidth: contentWidth,
+        windowHeight: contentHeight,
+        scrollX: 0,
+        scrollY: 0,
+      })
+      : renderHtmlSliceWithCanvasText(documentNode, contentWidth, currentHeight, offsetY, safeScale);
 
     const jpeg = await canvasToBlob(canvas, "image/jpeg", jpegQuality);
     const image = await output.embedJpg(await jpeg.arrayBuffer());
@@ -291,8 +300,94 @@ function buildOfflineHtml(title: string, pages: string) {
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Unable to encode the rendered page."))), type, quality);
+    let settled = false;
+    const finish = (blob: Blob | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(fallbackId);
+      if (blob) resolve(blob);
+      else reject(new Error("Unable to encode the rendered page."));
+    };
+    const fallbackId = window.setTimeout(() => {
+      try {
+        finish(dataUrlToBlob(canvas.toDataURL(type, quality)));
+      } catch (error) {
+        settled = true;
+        reject(error);
+      }
+    }, 3_000);
+    canvas.toBlob(finish, type, quality);
   });
+}
+
+function renderHtmlSliceWithCanvasText(
+  documentNode: Document,
+  width: number,
+  height: number,
+  offsetY: number,
+  scale: number,
+) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(width * scale));
+  canvas.height = Math.max(1, Math.ceil(height * scale));
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("Canvas is not available in this browser.");
+
+  const bodyStyle = documentNode.defaultView?.getComputedStyle(documentNode.body);
+  const fontSize = Math.max(12, Math.min(24, Number.parseFloat(bodyStyle?.fontSize ?? "16") || 16));
+  const lineHeight = Math.max(fontSize * 1.45, Number.parseFloat(bodyStyle?.lineHeight ?? "") || 0);
+  const padding = Math.max(20, fontSize * 1.5);
+  const lines = wrapCanvasText(
+    context,
+    documentNode.body.innerText.trim() || documentNode.body.textContent?.trim() || "HTML document",
+    Math.max(1, width - padding * 2),
+    `${bodyStyle?.fontWeight ?? "400"} ${fontSize}px ${bodyStyle?.fontFamily ?? "Arial, sans-serif"}`,
+  );
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.scale(scale, scale);
+  context.font = `${bodyStyle?.fontWeight ?? "400"} ${fontSize}px ${bodyStyle?.fontFamily ?? "Arial, sans-serif"}`;
+  context.textBaseline = "top";
+  context.fillStyle = bodyStyle?.color || "#111111";
+  lines.forEach((line, index) => {
+    const y = padding + index * lineHeight - offsetY;
+    if (y > -lineHeight && y < height) context.fillText(line, padding, y);
+  });
+  return canvas;
+}
+
+function wrapCanvasText(context: CanvasRenderingContext2D, text: string, maxWidth: number, font: string) {
+  context.font = font;
+  const lines: string[] = [];
+  for (const paragraph of text.replace(/\r/g, "").split("\n")) {
+    if (!paragraph.trim()) {
+      lines.push("");
+      continue;
+    }
+    const words = paragraph.trim().split(/\s+/);
+    let current = "";
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (current && context.measureText(candidate).width > maxWidth) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) lines.push(current);
+  }
+  return lines;
+}
+
+function dataUrlToBlob(dataUrl: string) {
+  const [header, encoded = ""] = dataUrl.split(",", 2);
+  const type = header.match(/^data:([^;,]+)/i)?.[1] ?? "application/octet-stream";
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type });
 }
 
 function blobToDataUrl(blob: Blob) {
@@ -328,4 +423,20 @@ function round(value: number) {
 
 function yieldToBrowser() {
   return new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+}
+
+function settleWithin(promise: Promise<unknown> | undefined, timeoutMs: number) {
+  if (!promise) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      resolve();
+    };
+    const timeoutId = window.setTimeout(finish, timeoutMs);
+    promise.then(finish, finish);
+  });
 }

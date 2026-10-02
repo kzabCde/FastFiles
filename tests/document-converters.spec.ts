@@ -49,6 +49,37 @@ async function makeDocx() {
   return await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
+async function makeOverflowDocx() {
+  const zip = new JSZip();
+  const paragraphs = Array.from({ length: 90 }, (_, index) => `
+    <w:p>
+      <w:pPr><w:spacing w:after="120"/></w:pPr>
+      <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Flow line ${String(index + 1).padStart(2, "0")} — pagination should follow the original A4 paper size.</w:t></w:r>
+    </w:p>`).join("");
+
+  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+  zip.folder("_rels")?.file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+  zip.folder("word")?.file("document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphs}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`);
+  return await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
 async function makeTextPdf() {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -99,6 +130,32 @@ test("Word to PDF converts a real DOCX locally and preserves page breaks", async
   const path = await download.path();
   const output = await PDFDocument.load(await fs.readFile(path!));
   expect(output.getPageCount()).toBe(2);
+});
+
+test("Word to PDF paginates flowing content using the original DOCX paper size", async ({ page }) => {
+  await page.goto("/tools/word-to-pdf");
+  await upload(page, { name: "flowing-a4.docx", mimeType: DOCX_MIME, buffer: await makeOverflowDocx() });
+
+  const workspace = page.getByTestId("word-to-pdf-workspace");
+  await expect(workspace).toBeVisible();
+  await workspace.getByRole("button", { name: /CONVERT TO PDF/i }).click();
+
+  const result = page.getByTestId("result-center");
+  await expect(result).toContainText("WORD → PDF COMPLETE", { timeout: 30_000 });
+  await expect(result).toContainText(/Word layout renderer/i);
+
+  const downloadPromise = page.waitForEvent("download");
+  await result.getByRole("button", { name: "Download", exact: true }).first().click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  const output = await PDFDocument.load(await fs.readFile(path!));
+
+  expect(output.getPageCount()).toBeGreaterThanOrEqual(2);
+  for (const pdfPage of output.getPages()) {
+    const { width, height } = pdfPage.getSize();
+    expect(width).toBeCloseTo(595.3, 0);
+    expect(height).toBeCloseTo(841.9, 0);
+  }
 });
 
 test("PDF to Word defaults to Preserve Layout and keeps every page as a visual page", async ({ page }) => {

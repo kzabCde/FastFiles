@@ -9,7 +9,7 @@ import QRGenerator from "./QRGenerator";
 import { TOOLS, TOOL_CATEGORIES, groupKind, searchTools, toolsFor, type ToolDefinition } from "@/lib/tools";
 import { formatBytes } from "@/lib/download";
 import { APP_VERSION } from "@/lib/app-info";
-import { inspectFiles, isLargeWorkload, summarizeQueue, usableFiles, type FileQueueItem } from "@/lib/file-intake";
+import { inspectFiles, isExternalFileDrag, isLargeWorkload, summarizeQueue, usableFiles, type FileQueueItem } from "@/lib/file-intake";
 
 type Language = "en" | "th";
 type Theme = "system" | "light" | "dark";
@@ -17,7 +17,7 @@ type Theme = "system" | "light" | "dark";
 const copy = {
   en: {
     hero: "Files should be easier.",
-    body: "Convert documents, merge PDFs, edit images and generate QR codes without unnecessary uploads.",
+    body: "Merge, convert, resize, compress, organize and generate QR codes without unnecessary uploads.",
     drop: "Drop files here",
     dropSub: "or click to browse · paste supported files",
     local: "Processed locally on your device",
@@ -33,7 +33,7 @@ const copy = {
     browse: "Browse files",
     popular: "Popular tools",
     popularSub: "Everyday PDF, image and QR work, without the clutter.",
-    mixed: "Mixed PDF and image selections, and other mixed file types, do not share a safe action yet. Remove a type or add matching files.",
+    mixed: "Mixed PDF and image selections do not share a safe action yet. Remove a type or add matching files.",
     noReady: "Remove unavailable files before choosing a tool.",
     workload: "Large workload",
     workloadBody: "This operation may use significant memory on this device. FastFiles does not claim a fixed maximum file size because browser limits vary by device.",
@@ -41,7 +41,7 @@ const copy = {
   },
   th: {
     hero: "จัดการไฟล์ให้ง่ายกว่านี้",
-    body: "แปลงเอกสาร รวม PDF แก้ไขรูปภาพ และสร้าง QR Code โดยลดการอัปโหลดที่ไม่จำเป็น",
+    body: "รวม แปลง ปรับขนาด บีบอัด จัดหน้าไฟล์ และสร้าง QR Code โดยลดการอัปโหลดที่ไม่จำเป็น",
     drop: "วางไฟล์ที่นี่",
     dropSub: "หรือคลิกเพื่อเลือกไฟล์ · รองรับการวางไฟล์จากคลิปบอร์ด",
     local: "ประมวลผลบนอุปกรณ์ของคุณ",
@@ -57,7 +57,7 @@ const copy = {
     browse: "เลือกไฟล์",
     popular: "เครื่องมือยอดนิยม",
     popularSub: "งาน PDF รูปภาพ และ QR Code ที่ใช้บ่อย โดยไม่เพิ่มขั้นตอนเกินจำเป็น",
-    mixed: "ไฟล์ PDF และรูปภาพ รวมถึงไฟล์ต่างชนิดที่เลือกพร้อมกัน ยังไม่มีเครื่องมือร่วมที่ปลอดภัย กรุณาลบหนึ่งประเภทหรือเพิ่มไฟล์ชนิดเดียวกัน",
+    mixed: "ไฟล์ PDF และรูปภาพที่เลือกพร้อมกันยังไม่มีเครื่องมือร่วมที่ปลอดภัย กรุณาลบหนึ่งประเภทหรือเพิ่มไฟล์ชนิดเดียวกัน",
     noReady: "กรุณาลบไฟล์ที่ใช้ไม่ได้ก่อนเลือกเครื่องมือ",
     workload: "งานขนาดใหญ่",
     workloadBody: "การทำงานนี้อาจใช้หน่วยความจำมากบนอุปกรณ์นี้ FastFiles ไม่ระบุขนาดไฟล์สูงสุดตายตัว เพราะข้อจำกัดของเบราว์เซอร์แตกต่างกันในแต่ละอุปกรณ์",
@@ -74,6 +74,8 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
   "page-numbers": { en: "Add configurable page numbers locally", th: "เพิ่มเลขหน้าพร้อมกำหนดตำแหน่งได้" },
   "pdf-metadata": { en: "View, edit and clear supported document metadata", th: "ดู แก้ไข และล้างข้อมูลเอกสารที่รองรับ" },
   "pdf-text": { en: "Extract selectable PDF text as a local TXT file", th: "ดึงข้อความที่เลือกได้จาก PDF เป็นไฟล์ TXT" },
+  "pdf-to-html": { en: "Export PDF pages as an offline visual web document", th: "แปลงหน้า PDF เป็นเว็บออฟไลน์ที่คงหน้าตาเดิม" },
+  "html-to-pdf": { en: "Turn safe local HTML into a downloadable PDF", th: "แปลง HTML ที่ตรวจสอบแล้วเป็น PDF ในเครื่อง" },
   "word-to-pdf": { en: "Convert DOCX documents to PDF locally", th: "แปลงเอกสาร DOCX เป็น PDF ในเครื่อง" },
   "pdf-to-word": { en: "Rebuild text-based PDFs as editable DOCX", th: "สร้าง PDF ที่มีข้อความกลับเป็น DOCX ที่แก้ไขได้" },
   "images-to-pdf": { en: "Turn JPG, PNG and WebP into PDF", th: "รวม JPG, PNG และ WebP เป็น PDF" },
@@ -196,7 +198,7 @@ export default function FastFilesApp() {
   const openTool = (tool: ToolDefinition) => {
     setActiveQr(false);
     const currentKind = groupKind(files);
-    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : currentKind === "docx" ? "docx" : null;
+    const normalizedKind = currentKind === "image" ? "image" : currentKind === "pdf" ? "pdf" : currentKind === "html" ? "html" : currentKind === "docx" ? "docx" : null;
     if (files.length && normalizedKind && tool.accepts.includes(normalizedKind)) setActiveTool(tool);
     else openPicker();
   };
@@ -235,10 +237,30 @@ export default function FastFilesApp() {
   return (
     <main
       className={`app-shell ${dragging ? "global-dragging" : ""}`}
-      onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }}
-      onDrop={(event) => { event.preventDefault(); setDragging(false); void acceptFiles([...event.dataTransfer.files]); }}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget === event.target) {
+          setDragging(false);
+        }
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        if (isExternalFileDrag(event) || (event.dataTransfer?.files && event.dataTransfer.files.length > 0)) {
+          void acceptFiles([...event.dataTransfer.files]);
+        }
+      }}
     >
       <header className="site-header">
         <div className="header-inner">
@@ -270,7 +292,7 @@ export default function FastFilesApp() {
         </div>
       </header>
 
-      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp,image/avif,.pdf,.docx,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
+      <input ref={inputRef} hidden multiple type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/jpeg,image/png,image/webp,image/avif,.pdf,.docx,.html,.htm,.jpg,.jpeg,.png,.webp,.avif" onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
 
       <section className="hero-section">
         <div className="hero-wrap">
@@ -289,7 +311,13 @@ export default function FastFilesApp() {
             {!queue.length ? (
               <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>DOCX</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span><span className="paste-hint muted">{language === "th" ? "หรือกด Ctrl+V วางจาก clipboard" : "or press Ctrl+V to paste from clipboard"}</span></div>
             ) : (
-              <div className="drop-content loaded"><span className="ready-badge"><span className="live-dot" /> {t.detected}</span><strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong><span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.docxCount} DOCX · {summary.imageCount} IMG</span><span className="browse-link">+ {t.newFiles}</span></div>
+              <div className="drop-content loaded">
+                <span className="ready-badge"><span className="live-dot" /> {t.detected}</span>
+                <DropzoneThumbnails items={queue} />
+                <strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong>
+                <span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.docxCount} DOCX · {summary.imageCount} IMG · {summary.htmlCount} HTML</span>
+                <span className="browse-link">+ {t.newFiles}</span>
+              </div>
             )}
           </button>
         </div>
@@ -352,7 +380,7 @@ export default function FastFilesApp() {
         <div className="privacy-card"><div className="privacy-icon"><ShieldIcon /></div><div><span className="section-kicker">Local-first</span><h2>{language === "th" ? "ไฟล์และข้อมูลของคุณยังเป็นของคุณ" : "Your files and data stay yours."}</h2></div><div className="privacy-copy"><p>{language === "th" ? "เครื่องมือหลักของ FastFiles รวมถึง QR Generator ทำงานในเบราว์เซอร์ ไฟล์ต้นฉบับและข้อมูล QR ไม่ถูกเก็บถาวร และไม่มีบัญชีผู้ใช้" : "Core FastFiles tools, including QR generation, run in your browser. Original files and QR content are not permanently stored and no account is required."}</p><div className="privacy-points"><span>Local processing</span><span>No account</span><span>No permanent file storage</span></div></div></div>
       </section>
 
-      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>Document + PDF + Image + QR tools designed for reliable everyday work.</p><span>v{APP_VERSION}</span></section>
+      <section className="about-strip section-shell" id="about"><div><FastFilesMark /><span><strong>FastFiles</strong><small>Drop. Edit. Done.</small></span></div><p>PDF + Image + QR tools designed for reliable everyday work.</p><span>v{APP_VERSION}</span></section>
       <footer className="section-shell"><span>© 2026 FastFiles</span><span>Private by design</span><span>Built for the browser</span></footer>
       {dragging && <div className="drag-overlay"><span className="drop-plus">+</span><strong>{language === "th" ? "วางไฟล์ได้ทุกที่" : "Drop files anywhere"}</strong><span>PDF · JPG · PNG · WEBP</span></div>}
     </main>
@@ -377,6 +405,8 @@ function ToolGlyph({ id }: { id: ToolDefinition["id"] }) {
   if (id === "page-numbers") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h2v5M14 12h2a1 1 0 0 1 0 2h-2v3h3"/></svg>;
   if (id === "pdf-metadata") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h6M9 15h6M9 18h4"/></svg>;
   if (id === "pdf-text") return <svg viewBox="0 0 24 24" {...common}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h6M9 15h6M9 18h6"/><path d="M4 9h5"/></svg>;
+  if (id === "pdf-to-html") return <svg viewBox="0 0 24 24" {...common}><path d="M5 3h9l4 4v5M14 3v5h4"/><path d="m8 15-3 3 3 3M16 15l3 3-3 3M13 14l-2 8"/></svg>;
+  if (id === "html-to-pdf") return <svg viewBox="0 0 24 24" {...common}><path d="m7 5-4 4 4 4M13 5l4 4-4 4M11 3 9 15"/><path d="M8 19h11M16 16l3 3-3 3"/></svg>;
   if (id === "images-to-pdf") return <svg viewBox="0 0 24 24" {...common}><rect x="3" y="5" width="8" height="8" rx="1.5"/><path d="m4.5 11 2-2 1.5 1.5 1.5-2 1.5 2.5M15 5h4a2 2 0 0 1 2 2v12h-8v-4"/><path d="M16 16h2M17 15v2"/></svg>;
   if (id === "pdf-to-images") return <svg viewBox="0 0 24 24" {...common}><path d="M5 4h8l4 4v4"/><path d="M13 4v4h4"/><rect x="10" y="13" width="10" height="7" rx="1.5"/><path d="m11.5 18 2-2 1.5 1.5 1.5-2 2 2.5"/></svg>;
   if (id === "image-convert") return <svg viewBox="0 0 24 24" {...common}><rect x="4" y="5" width="12" height="12" rx="2"/><path d="m5.5 15 3-3 2 2 2-3 3.5 4M17 8h3v3M20 8l-4 4"/></svg>;
@@ -390,3 +420,40 @@ function QrGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="current
 function SearchIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>; }
 function ShieldIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.6-2.7 7.8-7 10-4.3-2.2-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>; }
 function SparkIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.7 4.2 2.8 6.3 7 7-4.2.7-6.3 2.8-7 7-.7-4.2-2.8-6.3-7-7 4.2-.7 6.3-2.8 7-7Z"/><path d="M19 16c.2 1.4.9 2.1 2.3 2.3-1.4.2-2.1.9-2.3 2.3-.2-1.4-.9-2.1-2.3-2.3 1.4-.2 2.1-.9 2.3-2.3Z"/></svg>; }
+
+function DropzoneThumbnails({ items }: { items: FileQueueItem[] }) {
+  const images = items.filter((item) => item.kind === "image");
+  if (!images.length) return null;
+
+  return (
+    <div className="dropzone-thumbnails">
+      {images.slice(0, 4).map((item) => (
+        <DropzoneThumbItem key={item.id} file={item.file} />
+      ))}
+      {images.length > 4 && (
+        <span className="dropzone-more-badge">+{images.length - 4}</span>
+      )}
+    </div>
+  );
+}
+
+function DropzoneThumbItem({ file }: { file: File }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  if (!src) return null;
+
+  return (
+    <span className="dropzone-thumb" title={file.name}>
+      <img src={src} alt={file.name} loading="lazy" />
+    </span>
+  );
+}
+

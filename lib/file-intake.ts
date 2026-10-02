@@ -21,6 +21,7 @@ export type QueueSummary = {
   totalSize: number;
   pdfCount: number;
   imageCount: number;
+  htmlCount: number;
   docxCount: number;
   errorCount: number;
   totalPages: number;
@@ -55,6 +56,15 @@ export async function inspectFile(file: File): Promise<FileQueueItem> {
       const message = error instanceof Error ? error.message : String(error);
       return { id, file, kind, status: "error", message: /encrypt|password/i.test(message) ? "password-pdf" : "invalid-pdf" };
     }
+  }
+
+  if (kind === "html") {
+    if (file.size > 20 * 1024 * 1024) return { id, file, kind, status: "error", message: "html-too-large" };
+    const sample = new Uint8Array(await file.slice(0, 8192).arrayBuffer());
+    if (sample.includes(0)) return { id, file, kind, status: "error", message: "invalid-html" };
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(sample).trim();
+    if (!text) return { id, file, kind, status: "error", message: "invalid-html" };
+    return { id, file, kind, status: "ready" };
   }
 
   if (kind === "docx") {
@@ -98,11 +108,12 @@ export function summarizeQueue(items: FileQueueItem[]): QueueSummary {
     summary.totalSize += item.file.size;
     if (item.kind === "pdf") summary.pdfCount += 1;
     if (item.kind === "image") summary.imageCount += 1;
+    if (item.kind === "html") summary.htmlCount += 1;
     if (item.kind === "docx") summary.docxCount += 1;
     if (item.status === "error") summary.errorCount += 1;
     summary.totalPages += item.pageCount ?? 0;
     return summary;
-  }, { count: 0, totalSize: 0, pdfCount: 0, imageCount: 0, docxCount: 0, errorCount: 0, totalPages: 0 });
+  }, { count: 0, totalSize: 0, pdfCount: 0, imageCount: 0, htmlCount: 0, docxCount: 0, errorCount: 0, totalPages: 0 });
 }
 
 export function isLargeWorkload(summary: QueueSummary) {
@@ -123,6 +134,8 @@ export function fileIssueMessage(code: string, language: "en" | "th") {
     "unsupported-avif": ["This browser cannot decode this AVIF image. Try a current Chromium, Firefox, or Safari release, or convert it first.", "เบราว์เซอร์นี้ไม่สามารถอ่านภาพ AVIF ไฟล์นี้ได้ กรุณาใช้เบราว์เซอร์เวอร์ชันปัจจุบันหรือแปลงไฟล์ก่อน"],
     "invalid-image": ["The image could not be decoded.", "ไม่สามารถอ่านข้อมูลรูปภาพได้"],
     "invalid-pdf": ["The PDF appears to be corrupted or invalid.", "ไฟล์ PDF อาจเสียหายหรือรูปแบบไม่ถูกต้อง"],
+    "invalid-html": ["The HTML file is empty or could not be read as text.", "ไฟล์ HTML ว่างเปล่าหรือไม่สามารถอ่านเป็นข้อความได้"],
+    "html-too-large": ["HTML files are limited to 20 MB for safe local processing.", "จำกัดไฟล์ HTML ที่ 20 MB เพื่อให้ประมวลผลในเครื่องได้อย่างปลอดภัย"],
     "password-pdf": ["Password-protected PDFs are not supported yet.", "ยังไม่รองรับ PDF ที่มีรหัสผ่าน"],
     "mime-mismatch": ["The filename and detected image type do not match. Processing may still work.", "นามสกุลไฟล์และชนิดรูปที่ตรวจพบไม่ตรงกัน แต่อาจยังประมวลผลได้"],
   };
@@ -136,4 +149,10 @@ function mimeMatchesExtension(mime: string, extension: string) {
   if (mime === "image/webp") return extension === "webp";
   if (mime === "image/avif") return extension === "avif";
   return true;
+}
+
+export function isExternalFileDrag(event: { dataTransfer: DataTransfer | null }): boolean {
+  if (!event.dataTransfer) return false;
+  const types = Array.from(event.dataTransfer.types ?? []);
+  return types.includes("Files") && !types.some((t) => t.startsWith("application/x-fastfiles-"));
 }

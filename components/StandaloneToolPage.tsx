@@ -7,7 +7,7 @@ import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
 import DocumentToolWorkspace from "./DocumentToolWorkspace";
 import { kindOf, type ToolDefinition } from "@/lib/tools";
-import { fileIssueMessage, inspectFiles } from "@/lib/file-intake";
+import { fileIssueMessage, inspectFiles, isExternalFileDrag } from "@/lib/file-intake";
 
 type Language = "en" | "th";
 type Theme = "system" | "light" | "dark";
@@ -25,6 +25,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [htmlDraft, setHtmlDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,14 +50,16 @@ export default function StandaloneToolPage({ tool }: Props) {
 
   const acceptsPdf = tool.accepts.includes("pdf");
   const acceptsImage = tool.accepts.includes("image");
+  const acceptsHtml = tool.accepts.includes("html");
   const acceptsDocx = tool.accepts.includes("docx");
   const inputAccept = useMemo(() => {
     const values: string[] = [];
     if (acceptsPdf) values.push("application/pdf", ".pdf");
-    if (acceptsDocx) values.push("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx");
     if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", "image/avif", ".jpg", ".jpeg", ".png", ".webp", ".avif");
+    if (acceptsHtml) values.push("text/html", ".html", ".htm");
+    if (acceptsDocx) values.push("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx");
     return values.join(",");
-  }, [acceptsPdf, acceptsImage, acceptsDocx]);
+  }, [acceptsPdf, acceptsImage, acceptsHtml, acceptsDocx]);
 
   const openPicker = () => {
     setError("");
@@ -66,16 +69,17 @@ export default function StandaloneToolPage({ tool }: Props) {
 
   const acceptFiles = async (incoming: File[]) => {
     setError("");
+    const matching = incoming.filter((file) => {
+      const kind = kindOf(file);
+      return (kind === "pdf" && acceptsPdf) || (kind === "docx" && acceptsDocx) || (kind === "image" && acceptsImage) || (kind === "html" && acceptsHtml);
+    });
+
     if (tool.id === "word-to-pdf" && incoming.some((file) => /\.doc$/i.test(file.name) || file.type === "application/msword")) {
       setError(language === "th"
         ? "ยังไม่รองรับไฟล์ .doc รุ่นเก่า กรุณาบันทึกเป็น .docx แล้วลองอีกครั้ง"
         : "Legacy .doc files are not supported yet. Save the document as .docx and try again.");
       return;
     }
-    const matching = incoming.filter((file) => {
-      const kind = kindOf(file);
-      return (kind === "pdf" && acceptsPdf) || (kind === "docx" && acceptsDocx) || (kind === "image" && acceptsImage);
-    });
 
     if (!matching.length) {
       setError(language === "th" ? "ไฟล์ที่เลือกไม่รองรับเครื่องมือนี้" : "Those files are not supported by this tool.");
@@ -144,22 +148,34 @@ export default function StandaloneToolPage({ tool }: Props) {
   const title = language === "th" ? tool.thai : tool.label;
   const fileHint = acceptsDocx
     ? "DOCX"
-    : acceptsPdf && acceptsImage
-      ? "PDF · JPG · PNG · WEBP · AVIF"
-      : acceptsPdf
-        ? "PDF"
-        : "JPG · PNG · WEBP · AVIF";
+    : acceptsHtml ? "HTML · HTM" : acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
 
   return (
     <main
       className={`app-shell ${dragging ? "global-dragging" : ""}`}
-      onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-      onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false); }}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (isExternalFileDrag(event)) {
+          setDragging(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget === event.target) {
+          setDragging(false);
+        }
+      }}
       onDrop={(event) => {
         event.preventDefault();
         setDragging(false);
-        void acceptFiles([...event.dataTransfer.files]);
+        if (isExternalFileDrag(event) || (event.dataTransfer?.files && event.dataTransfer.files.length > 0)) {
+          void acceptFiles([...event.dataTransfer.files]);
+        }
       }}
     >
       <header className="site-header">
@@ -218,6 +234,29 @@ export default function StandaloneToolPage({ tool }: Props) {
           </button>
         </div>
       </section>
+
+      {tool.id === "html-to-pdf" && (
+        <section className="html-paste-panel" aria-labelledby="html-paste-title">
+          <div>
+            <span className="section-kicker">HTML INPUT</span>
+            <h2 id="html-paste-title">{language === "th" ? "หรือวางโค้ด HTML" : "Or paste HTML"}</h2>
+            <p>{language === "th" ? "สคริปต์และการเชื่อมต่อภายนอกจะถูกปิดก่อนแสดงตัวอย่าง" : "Scripts and external connections are disabled before previewing."}</p>
+          </div>
+          <textarea
+            aria-label={language === "th" ? "โค้ด HTML" : "HTML code"}
+            value={htmlDraft}
+            onChange={(event) => setHtmlDraft(event.target.value)}
+            placeholder="<!doctype html>\n<html>…</html>"
+          />
+          <button
+            className="primary-button"
+            disabled={!htmlDraft.trim() || checking}
+            onClick={() => void acceptFiles([new File([htmlDraft], "pasted-document.html", { type: "text/html" })])}
+          >
+            {language === "th" ? "เปิดตัวอย่าง" : "OPEN PREVIEW"} ↗
+          </button>
+        </section>
+      )}
 
       {error && <div className="error-panel" role="alert"><strong>{language === "th" ? "เลือกไฟล์อีกครั้ง" : "Choose files again"}</strong><span>{error}</span></div>}
       {dragging && <div className="drag-overlay"><strong>{language === "th" ? "วางไฟล์เพื่อเริ่ม" : "Drop to start"}</strong></div>}

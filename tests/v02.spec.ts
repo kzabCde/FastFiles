@@ -110,8 +110,12 @@ test("files can be removed independently", async ({ page }) => {
   await expect(page.getByText("keep.png")).toBeVisible();
 });
 
-test("queue supports drag reorder", async ({ page, browserName }) => {
+test("queue supports drag reorder", async ({ page, browserName, isMobile }) => {
   test.skip(browserName === "webkit", "HTML drag behavior is already covered in Chromium/Firefox and is flaky in headless WebKit.");
+  test.skip(Boolean(isMobile), "HTML5 drag simulation is not supported on mobile touch emulation; keyboard and 1-click reorder buttons are tested instead.");
+  const viewport = page.viewportSize();
+  test.skip(Boolean(viewport && viewport.width < 1024), "HTML5 drag simulation is tested on desktop viewports.");
+
   await page.goto("/");
   await upload(page, [
     { name: "a.pdf", mimeType: "application/pdf", buffer: await makePdf() },
@@ -120,6 +124,20 @@ test("queue supports drag reorder", async ({ page, browserName }) => {
   await expect(page.locator(".queue-row")).toHaveCount(2);
   await page.locator(".drag-handle").first().dragTo(page.locator(".queue-row").nth(1));
   await expect(page.locator(".queue-row").first()).toContainText("b.pdf");
+  await expect(page.locator(".drag-overlay")).toHaveCount(0);
+});
+
+test("queue supports keyboard reordering without drag overlay", async ({ page }) => {
+  await page.goto("/");
+  await upload(page, [
+    { name: "item1.png", mimeType: "image/png", buffer: png },
+    { name: "item2.png", mimeType: "image/png", buffer: png },
+  ]);
+  await expect(page.locator(".queue-row")).toHaveCount(2);
+  await page.locator(".drag-handle").first().focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator(".queue-row").first()).toContainText("item2.png");
+  await expect(page.locator(".drag-overlay")).toHaveCount(0);
 });
 
 test("Thai and emoji filenames survive intake", async ({ page }) => {

@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "docx-preview": "0.3.7",
-    "html2canvas": "1.4.1",
+    "dompurify": "^3.4.16",
+    "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "next": "^15.5.4",
     "pdf-lib": "^1.17.1",

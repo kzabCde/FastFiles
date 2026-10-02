@@ -8,6 +8,9 @@ import ResultCenter, { type WorkspaceResult } from "./ResultCenter";
 import LiveImageWorkspace from "./LiveImageWorkspace";
 import PdfPreview from "./PdfPreview";
 import NavigationMenu from "./NavigationMenu";
+import HtmlToPdfWorkspace from "./HtmlToPdfWorkspace";
+import PdfToHtmlWorkspace from "./PdfToHtmlWorkspace";
+import ImagesToPdfWorkspace from "./ImagesToPdfWorkspace";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
@@ -16,7 +19,6 @@ import {
   extractPdfText,
   getPdfMetadata,
   getPdfPageCount,
-  imagesToPdf,
   mergePdfs,
   organizePdf,
   parsePageRange,
@@ -54,15 +56,7 @@ type ProgressState = { label: string; done: number; total: number; detail?: stri
 type Runner = (label: string, total: number, task: () => Promise<void>) => Promise<void>;
 type ProgressUpdater = (label: string) => (done: number, total: number) => void;
 
-function usePreviewUrls(files: File[]) {
-  const [urls, setUrls] = useState<string[]>([]);
-  useEffect(() => {
-    const next = files.map((file) => URL.createObjectURL(file));
-    setUrls(next);
-    return () => next.forEach((url) => URL.revokeObjectURL(url));
-  }, [files]);
-  return urls;
-}
+
 
 function Progress({ value, language }: { value: ProgressState; language: "en" | "th" }) {
   if (!value) return null;
@@ -138,6 +132,8 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       {tool.id === "page-numbers" && <PageNumbersWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-metadata" && <MetadataWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-text" && <PdfTextWorkspace file={files[0]} language={language} run={run} update={update} busy={busy} onReset={onReset} />}
+      {tool.id === "pdf-to-html" && <PdfToHtmlWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
+      {tool.id === "html-to-pdf" && <HtmlToPdfWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "images-to-pdf" && <ImagesToPdfWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-to-images" && <PdfToImagesWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (
@@ -309,9 +305,9 @@ function OrganizeWorkspace({ file, language, run, setResult, busy }: { file: Fil
         <button onClick={rotateSelected} disabled={!selected.size || busy}>ROTATE</button><button onClick={duplicateSelected} disabled={!selected.size || busy}>DUPLICATE</button><button onClick={extractSelected} disabled={!selected.size || busy}>EXTRACT</button><button onClick={deleteSelected} disabled={!selected.size || selected.size >= pages.length || busy}>DELETE</button>
         <button className="primary-button small" onClick={exportPdf} disabled={busy}>EXPORT PDF ↗</button>
       </div></div>
-      <div className="page-grid">{pages.map((page, index) => <div className={`page-card ${selected.has(index) ? "selected" : ""} ${dragOverIndex === index ? "drag-over" : ""}`} key={`${page.sourceIndex}-${index}`} onDragOver={(event) => { event.preventDefault(); setDragOverIndex(index); }} onDragLeave={() => setDragOverIndex((value) => value === index ? null : value)} onDrop={() => { const from = dragIndex.current; setDragOverIndex(null); if (from === null || from === index) return; const next = [...pages]; const [moved] = next.splice(from, 1); next.splice(index, 0, moved); commit(next); dragIndex.current = null; }}>
+      <div className="page-grid">{pages.map((page, index) => <div className={`page-card ${selected.has(index) ? "selected" : ""} ${dragOverIndex === index ? "drag-over" : ""}`} key={`${page.sourceIndex}-${index}`} onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = "move"; setDragOverIndex(index); }} onDragLeave={() => setDragOverIndex((value) => value === index ? null : value)} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const from = dragIndex.current; setDragOverIndex(null); if (from === null || from === index) return; const next = [...pages]; const [moved] = next.splice(from, 1); next.splice(index, 0, moved); commit(next); dragIndex.current = null; }}>
         <button type="button" className="page-select" aria-pressed={selected.has(index)} aria-label={`${language === "th" ? "เลือกหน้า" : "Select page"} ${index + 1}`} onClick={(event) => selectPage(index, event)}><div className="page-thumb" style={{ transform: `rotate(${page.rotation}deg)` }}>{thumbs[page.sourceIndex] ? <img src={thumbs[page.sourceIndex]} alt={`Page ${page.sourceIndex + 1}`} /> : <div className="thumb-skeleton" />}</div><span className="mono">{String(index + 1).padStart(2, "0")}</span></button>
-        <button type="button" className="page-drag-handle" draggable={!busy} aria-label={`${language === "th" ? "ลากเพื่อจัดลำดับหน้า" : "Drag to reorder page"} ${index + 1}`} onDragStart={(event) => { dragIndex.current = index; event.dataTransfer.effectAllowed = "move"; }} onDragEnd={() => { dragIndex.current = null; setDragOverIndex(null); }}>⋮⋮</button>
+        <button type="button" className="page-drag-handle" draggable={!busy} aria-label={`${language === "th" ? "ลากเพื่อจัดลำดับหน้า" : "Drag to reorder page"} ${index + 1}`} onDragStart={(event) => { dragIndex.current = index; event.dataTransfer.setData("application/x-fastfiles-reorder", String(index)); event.dataTransfer.effectAllowed = "move"; event.stopPropagation(); }} onDragEnd={() => { dragIndex.current = null; setDragOverIndex(null); }}>⋮⋮</button>
       </div>)}</div>
     </div>
   );
@@ -531,12 +527,6 @@ function PdfTextWorkspace({ file, language, run, update, busy, onReset }: { file
   );
 }
 
-function ImagesToPdfWorkspace({ files, language, run, update, setResult, busy }: { files: File[]; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
-  const images = files.filter((file) => kindOf(file) === "image");
-  const urls = usePreviewUrls(images);
-  const process = () => run("BUILDING PDF", images.length, async () => { const blob = await imagesToPdf(images, update("BUILDING PDF")); const name = "fastfiles-images.pdf"; downloadBlob(blob, name); setResult({ label: language === "th" ? `${images.length} รูปเป็น PDF` : `${images.length} IMAGES → PDF`, entries: [{ name, blob }], before: images.reduce((sum, file) => sum + file.size, 0), after: blob.size }); });
-  return <div className="workspace-grid"><div className="image-grid">{images.map((file, index) => <figure key={`${file.name}-${index}`}><img src={urls[index]} alt={file.name} /><figcaption><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></figcaption></figure>)}</div><aside className="action-card"><h2>A4 DOCUMENT</h2><p>{language === "th" ? "รูปจะถูกจัดกึ่งกลางลงบนหน้า A4 ตามลำดับจาก File Queue" : "Images are centered on A4 pages using the File Queue order."}</p><button className="primary-button" disabled={busy} onClick={process}>{language === "th" ? "สร้าง PDF" : "CREATE PDF"} ↗</button></aside></div>;
-}
 
 function PdfToImagesWorkspace({ file, language, run, update, setResult, busy }: { file: File; language: "en" | "th"; run: Runner; update: ProgressUpdater; setResult: (value: WorkspaceResult) => void; busy: boolean }) {
   const process = () => run("RENDERING PDF", 1, async () => { const outputs = await pdfToPngs(file, update("RENDERING PDF")); await downloadZip(outputs, `${file.name.replace(/\.pdf$/i, "")}-images.zip`); setResult({ label: language === "th" ? `แปลง ${outputs.length} หน้าเป็น PNG แล้ว` : `${outputs.length} PDF PAGES → PNG`, entries: outputs, before: file.size, after: outputs.reduce((sum, item) => sum + item.blob.size, 0) }); });

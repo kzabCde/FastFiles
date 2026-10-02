@@ -294,29 +294,153 @@ async function imageBytesAsPng(file: File) {
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-export async function imagesToPdf(files: File[], onProgress?: (done: number, total: number) => void) {
-  const pdf = await PDFDocument.create();
+export type ImagesToPdfLayout = 1 | 2 | 4 | 6 | 9;
+export type ImagesToPdfPageSize = "a4" | "letter" | "legal" | "fit";
+export type ImagesToPdfOrientation = "portrait" | "landscape" | "auto";
+export type ImagesToPdfMargin = "none" | "small" | "normal" | "large";
+export type ImagesToPdfFit = "contain" | "fill";
 
-  for (let index = 0; index < files.length; index += 1) {
-    const file = files[index];
-    let image;
-    if (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) {
-      image = await pdf.embedJpg(await file.arrayBuffer());
-    } else if (file.type === "image/png" || /\.png$/i.test(file.name)) {
-      image = await pdf.embedPng(await file.arrayBuffer());
-    } else {
-      image = await pdf.embedPng(await imageBytesAsPng(file));
+export type ImagesToPdfOptions = {
+  layout?: ImagesToPdfLayout;
+  pageSize?: ImagesToPdfPageSize;
+  orientation?: ImagesToPdfOrientation;
+  margin?: ImagesToPdfMargin;
+  fit?: ImagesToPdfFit;
+};
+
+const IMAGES_PAGE_SIZES: Record<"a4" | "letter" | "legal", [number, number]> = {
+  a4: [595.28, 841.89],
+  letter: [612, 792],
+  legal: [612, 1008],
+};
+
+const IMAGES_MARGINS: Record<ImagesToPdfMargin, number> = {
+  none: 0,
+  small: 14.17,
+  normal: 34.01,
+  large: 56.69,
+};
+
+export async function imagesToPdf(
+  files: File[],
+  optionsOrProgress?: ImagesToPdfOptions | ((done: number, total: number) => void),
+  onProgressCallback?: (done: number, total: number) => void,
+) {
+  const options: ImagesToPdfOptions = typeof optionsOrProgress === "object" && optionsOrProgress !== null ? optionsOrProgress : {};
+  const onProgress = typeof optionsOrProgress === "function" ? optionsOrProgress : onProgressCallback;
+
+  const layout = options.layout ?? 1;
+  const pageSize = options.pageSize ?? "a4";
+  const orientation = options.orientation ?? "portrait";
+  const marginKey = options.margin ?? "normal";
+  const fit = options.fit ?? "contain";
+
+  const pdf = await PDFDocument.create();
+  const totalPages = Math.ceil(files.length / layout);
+
+  for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
+    const chunk = files.slice(pageIndex * layout, (pageIndex + 1) * layout);
+    if (!chunk.length) break;
+
+    const embeddedImages = [];
+    for (const file of chunk) {
+      let img;
+      if (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) {
+        img = await pdf.embedJpg(await file.arrayBuffer());
+      } else if (file.type === "image/png" || /\.png$/i.test(file.name)) {
+        img = await pdf.embedPng(await file.arrayBuffer());
+      } else {
+        img = await pdf.embedPng(await imageBytesAsPng(file));
+      }
+      embeddedImages.push(img);
     }
 
-    const pageWidth = 595.28;
-    const pageHeight = 841.89;
-    const margin = 28;
-    const scale = Math.min((pageWidth - margin * 2) / image.width, (pageHeight - margin * 2) / image.height, 1);
-    const width = image.width * scale;
-    const height = image.height * scale;
+    let pageWidth: number;
+    let pageHeight: number;
+
+    if (pageSize === "fit" && layout === 1 && embeddedImages.length === 1) {
+      pageWidth = embeddedImages[0].width;
+      pageHeight = embeddedImages[0].height;
+    } else {
+      const base = IMAGES_PAGE_SIZES[pageSize === "fit" ? "a4" : pageSize];
+      let isLandscape = orientation === "landscape";
+      if (orientation === "auto") {
+        if (layout === 1 && embeddedImages.length === 1) {
+          isLandscape = embeddedImages[0].width > embeddedImages[0].height;
+        } else if (layout === 2) {
+          isLandscape = true;
+        } else {
+          isLandscape = false;
+        }
+      }
+      [pageWidth, pageHeight] = isLandscape ? [base[1], base[0]] : base;
+    }
+
+    const marginPt = pageSize === "fit" && layout === 1 ? 0 : IMAGES_MARGINS[marginKey];
+    let cols = 1;
+    let rows = 1;
+
+    if (layout === 2) {
+      if (pageWidth > pageHeight) {
+        cols = 2;
+        rows = 1;
+      } else {
+        cols = 1;
+        rows = 2;
+      }
+    } else if (layout === 4) {
+      cols = 2;
+      rows = 2;
+    } else if (layout === 6) {
+      if (pageWidth > pageHeight) {
+        cols = 3;
+        rows = 2;
+      } else {
+        cols = 2;
+        rows = 3;
+      }
+    } else if (layout === 9) {
+      cols = 3;
+      rows = 3;
+    }
+
+    const gap = layout === 1 || marginKey === "none" ? 0 : marginKey === "small" ? 8 : 14;
+    const availW = Math.max(1, pageWidth - marginPt * 2);
+    const availH = Math.max(1, pageHeight - marginPt * 2);
+    const cellW = (availW - (cols - 1) * gap) / cols;
+    const cellH = (availH - (rows - 1) * gap) / rows;
+
     const page = pdf.addPage([pageWidth, pageHeight]);
-    page.drawImage(image, { x: (pageWidth - width) / 2, y: (pageHeight - height) / 2, width, height });
-    onProgress?.(index + 1, files.length);
+
+    for (let i = 0; i < embeddedImages.length; i++) {
+      const image = embeddedImages[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+
+      const cellX = marginPt + col * (cellW + gap);
+      const cellY = pageHeight - marginPt - (row + 1) * cellH - row * gap;
+
+      const imgAspect = image.width / image.height;
+      const cellAspect = cellW / cellH;
+
+      let drawW = cellW;
+      let drawH = cellH;
+      if (fit === "contain") {
+        if (imgAspect > cellAspect) {
+          drawW = cellW;
+          drawH = cellW / imgAspect;
+        } else {
+          drawH = cellH;
+          drawW = cellH * imgAspect;
+        }
+      }
+      const drawX = cellX + (cellW - drawW) / 2;
+      const drawY = cellY + (cellH - drawH) / 2;
+
+      page.drawImage(image, { x: drawX, y: drawY, width: drawW, height: drawH });
+    }
+
+    onProgress?.(pageIndex + 1, totalPages);
     await yieldToBrowser();
   }
 
@@ -326,7 +450,7 @@ export async function imagesToPdf(files: File[], onProgress?: (done: number, tot
 
 let pdfWorkerConfigured = false;
 
-async function getPdfJs() {
+export async function getPdfJs() {
   const pdfjs = await import("pdfjs-dist");
   if (!pdfWorkerConfigured) {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();

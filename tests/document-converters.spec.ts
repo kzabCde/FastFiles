@@ -29,7 +29,11 @@ async function makeDocx() {
       <w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>FastFiles document test</w:t></w:r>
     </w:p>
     <w:p>
-      <w:r><w:t>First page keeps editable DOCX content before PDF rendering.</w:t><w:br w:type="page"/></w:r>
+      <w:r><w:t>First page keeps editable DOCX content before PDF rendering.</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:jc w:val="right"/></w:pPr>
+      <w:r><w:rPr><w:b/><w:color w:val="0A5A3A"/></w:rPr><w:t>ภาษาไทย ทดสอบการจัดรูปแบบเอกสาร</w:t><w:br w:type="page"/></w:r>
     </w:p>
     <w:p><w:r><w:t>Second page after an explicit Word page break.</w:t></w:r></w:p>
     <w:tbl>
@@ -85,6 +89,7 @@ test("Word to PDF converts a real DOCX locally and preserves page breaks", async
   await workspace.getByRole("button", { name: /CONVERT TO PDF/i }).click();
   const result = page.getByTestId("result-center");
   await expect(result).toContainText("WORD → PDF COMPLETE", { timeout: 30_000 });
+  await expect(result).toContainText(/Word layout renderer/i);
 
   const downloadPromise = page.waitForEvent("download");
   await result.getByRole("button", { name: "Download", exact: true }).first().click();

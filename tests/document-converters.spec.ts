@@ -139,5 +139,5 @@ test("legacy DOC files are rejected with a useful message", async ({ page }) => 
     mimeType: "application/msword",
     buffer: Buffer.from("not-a-docx"),
   });
-  await expect(page.getByRole("alert")).toContainText(/Legacy \.doc files are not supported|ยังไม่รองรับไฟล์ \.doc/i);
+  await expect(page.locator(".error-panel[role=\"alert\"]")).toContainText(/Legacy \.doc files are not supported|ยังไม่รองรับไฟล์ \.doc/i);
 });

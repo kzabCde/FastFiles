@@ -96,13 +96,39 @@ test("Word to PDF converts a real DOCX locally and preserves page breaks", async
   expect(output.getPageCount()).toBe(2);
 });
 
+test("PDF to Word defaults to Preserve Layout and keeps every page as a visual page", async ({ page }) => {
+  await page.goto("/tools/pdf-to-word");
+  await upload(page, { name: "layout.pdf", mimeType: "application/pdf", buffer: await makeTextPdf() });
+
+  const workspace = page.getByTestId("pdf-to-word-workspace");
+  const preserve = workspace.getByRole("radio", { name: /Preserve layout/i });
+  await expect(preserve).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+
+  await workspace.getByRole("button", { name: /CONVERT TO WORD/i }).click();
+  const result = page.getByTestId("result-center");
+  await expect(result).toContainText("PDF → WORD COMPLETE", { timeout: 30_000 });
+  await expect(result).toContainText(/Preserve Layout/i);
+
+  const downloadPromise = page.waitForEvent("download");
+  await result.getByRole("button", { name: "Download", exact: true }).first().click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  const zip = await JSZip.loadAsync(await fs.readFile(path!));
+  const documentXml = await zip.file("word/document.xml")?.async("text");
+  expect(documentXml?.match(/<wp:anchor/g)?.length).toBe(2);
+  expect(zip.file("word/media/page-1.png")).not.toBeNull();
+  expect(zip.file("word/media/page-2.png")).not.toBeNull();
+});
+
 test("PDF to Word creates an editable DOCX with reconstructed text", async ({ page }) => {
   await page.goto("/tools/pdf-to-word");
   await upload(page, { name: "editable.pdf", mimeType: "application/pdf", buffer: await makeTextPdf() });
 
   const workspace = page.getByTestId("pdf-to-word-workspace");
   await expect(workspace).toBeVisible();
-  await expect(workspace.getByText(/High|Moderate/i)).toBeVisible({ timeout: 20_000 });
+  await expect(workspace.getByText(/Preserve layout/i)).toBeVisible({ timeout: 20_000 });
+  await workspace.getByRole("radio", { name: /Editable/i }).click();
+  await expect(workspace.getByRole("radio", { name: /Editable/i })).toHaveAttribute("aria-checked", "true");
 
   await workspace.getByRole("button", { name: /CONVERT TO WORD/i }).click();
   const result = page.getByTestId("result-center");
@@ -122,14 +148,31 @@ test("PDF to Word creates an editable DOCX with reconstructed text", async ({ pa
   expect(documentXml).toContain('w:type="page"');
 });
 
-test("PDF to Word detects image-only scans instead of creating an empty DOCX", async ({ page }) => {
+test("PDF to Word preserves image-only scans as full-page Word images", async ({ page }) => {
   await page.goto("/tools/pdf-to-word");
   await upload(page, { name: "scan.pdf", mimeType: "application/pdf", buffer: await makeScannedPdf() });
 
   const workspace = page.getByTestId("pdf-to-word-workspace");
-  await expect(workspace).toContainText(/scanned PDF|PDF สแกน/i, { timeout: 20_000 });
-  await expect(workspace.getByRole("button", { name: /CONVERT TO WORD/i })).toBeDisabled();
-  await expect(page.getByTestId("result-center")).toHaveCount(0);
+  const preserve = workspace.getByRole("radio", { name: /Preserve layout/i });
+  const editable = workspace.getByRole("radio", { name: /Editable/i });
+  await expect(preserve).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+  await expect(editable).toBeDisabled();
+  await expect(workspace.getByRole("button", { name: /CONVERT TO WORD/i })).toBeEnabled();
+
+  await workspace.getByRole("button", { name: /CONVERT TO WORD/i }).click();
+  const result = page.getByTestId("result-center");
+  await expect(result).toContainText("PDF → WORD COMPLETE", { timeout: 30_000 });
+  await expect(result).toContainText(/Preserve Layout/i);
+
+  const downloadPromise = page.waitForEvent("download");
+  await result.getByRole("button", { name: "Download", exact: true }).first().click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  const zip = await JSZip.loadAsync(await fs.readFile(path!));
+  const documentXml = await zip.file("word/document.xml")?.async("text");
+  expect(documentXml).toContain("<wp:anchor");
+  expect(documentXml).toContain('relativeFrom="page"');
+  expect(zip.file("word/media/page-1.png")).not.toBeNull();
 });
 
 test("legacy DOC files are rejected with a useful message", async ({ page }) => {

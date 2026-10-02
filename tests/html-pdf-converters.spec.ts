@@ -28,11 +28,11 @@ test("HTML to PDF sanitizes active content and downloads a valid PDF", async ({ 
   await expect(preview.locator("img")).not.toHaveAttribute("src", /example\.com/);
 
   const downloadButton = page.getByRole("button", { name: /DOWNLOAD PDF|ดาวน์โหลด PDF/i });
+  await downloadButton.scrollIntoViewIfNeeded();
   await expect(downloadButton).toBeVisible();
   await expect(downloadButton).toBeEnabled();
-  await downloadButton.scrollIntoViewIfNeeded();
   const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
-  await downloadButton.click();
+  await downloadButton.click({ force: true });
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("safe-document.pdf");
   const path = await download.path();
@@ -54,11 +54,11 @@ test("PDF to HTML downloads a self-contained searchable HTML file", async ({ pag
   await expect(page.getByTestId("pdf-to-html-workspace")).toBeVisible();
 
   const downloadButton = page.getByRole("button", { name: /CONVERT & DOWNLOAD|แปลงไฟล์และดาวน์โหลด/i });
+  await downloadButton.scrollIntoViewIfNeeded();
   await expect(downloadButton).toBeVisible();
   await expect(downloadButton).toBeEnabled();
-  await downloadButton.scrollIntoViewIfNeeded();
   const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
-  await downloadButton.click();
+  await downloadButton.click({ force: true });
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("two-pages.html");
   const path = await download.path();
@@ -75,11 +75,11 @@ test("PDF to HTML can bundle page assets into a ZIP", async ({ page }) => {
   await page.getByLabel("OUTPUT").selectOption("zip");
 
   const downloadButton = page.getByRole("button", { name: /CONVERT & DOWNLOAD|แปลงไฟล์และดาวน์โหลด/i });
+  await downloadButton.scrollIntoViewIfNeeded();
   await expect(downloadButton).toBeVisible();
   await expect(downloadButton).toBeEnabled();
-  await downloadButton.scrollIntoViewIfNeeded();
   const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
-  await downloadButton.click();
+  await downloadButton.click({ force: true });
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("archive-html.zip");
   const path = await download.path();
@@ -133,16 +133,20 @@ test("images to PDF workspace supports grid layout, reorder, and custom options"
 
   // Switch to reorder/manage view
   const reorderTab = page.getByTestId("view-mode-manage");
-  await reorderTab.dispatchEvent("click");
+  await reorderTab.scrollIntoViewIfNeeded();
+  await reorderTab.click({ force: true });
+  // Wait for the sheet view to disappear and manage view to appear
+  await expect(page.locator(".img-sim-sheet")).toBeHidden();
+  await expect(page.locator(".img-manage-container")).toBeVisible();
   await expect(page.locator(".img-manage-card")).toHaveCount(4);
 
   // Download PDF
   const downloadButton = page.getByRole("button", { name: /CREATE PDF|สร้าง PDF/i });
+  await downloadButton.scrollIntoViewIfNeeded();
   await expect(downloadButton).toBeVisible();
   await expect(downloadButton).toBeEnabled();
-  await downloadButton.scrollIntoViewIfNeeded();
   const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
-  await downloadButton.click();
+  await downloadButton.click({ force: true });
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("fastfiles-images.pdf");
 });

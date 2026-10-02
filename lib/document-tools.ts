@@ -672,7 +672,7 @@ async function convertDocxToPdfPreserveLayout(
 
 async function captureDocxPage(
   page: HTMLElement,
-  styleHost: HTMLElement,
+  _styleHost: HTMLElement,
   signal?: AbortSignal,
 ): Promise<{ blob: Blob; widthPoints: number; heightPoints: number }> {
   assertNotAborted(signal);
@@ -681,69 +681,32 @@ async function captureDocxPage(
   const widthPx = Math.max(1, rect.width || Number.parseFloat(computed.width) || 793.7);
   const heightPx = Math.max(1, rect.height || Number.parseFloat(computed.height) || 1122.5);
   const scale = Math.max(1, Math.min(2, Math.sqrt(10_000_000 / Math.max(1, widthPx * heightPx))));
+  const { default: html2canvas } = await import("html2canvas");
+  assertNotAborted(signal);
 
-  const xhtml = document.createElement("div");
-  xhtml.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-  xhtml.className = "ff-docx-wrapper";
-  xhtml.style.width = `${widthPx}px`;
-  xhtml.style.height = `${heightPx}px`;
-  xhtml.style.margin = "0";
-  xhtml.style.padding = "0";
-  xhtml.style.background = "#fff";
-  for (const style of Array.from(styleHost.querySelectorAll("style"))) {
-    xhtml.appendChild(style.cloneNode(true));
-  }
-  const clone = page.cloneNode(true) as HTMLElement;
-  clone.style.margin = "0";
-  xhtml.appendChild(clone);
-
-  const serialized = new XMLSerializer().serializeToString(xhtml);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" viewBox="0 0 ${widthPx} ${heightPx}"><foreignObject x="0" y="0" width="100%" height="100%">${serialized}</foreignObject></svg>`;
-  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  try {
-    const image = await loadImage(url, signal);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.ceil(widthPx * scale));
-    canvas.height = Math.max(1, Math.ceil(heightPx * scale));
-    const context = required2d(canvas);
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await canvasToBlob(canvas, "image/png", 1);
-    canvas.width = 1;
-    canvas.height = 1;
-    return {
-      blob,
-      widthPoints: widthPx * 0.75,
-      heightPoints: heightPx * 0.75,
-    };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-async function loadImage(url: string, signal?: AbortSignal) {
-  return await new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    const abort = () => {
-      image.src = "";
-      const error = new Error("Conversion cancelled.");
-      error.name = "AbortError";
-      reject(error);
-    };
-    signal?.addEventListener("abort", abort, { once: true });
-    image.onload = () => {
-      signal?.removeEventListener("abort", abort);
-      resolve(image);
-    };
-    image.onerror = () => {
-      signal?.removeEventListener("abort", abort);
-      reject(new Error("Unable to capture the rendered DOCX page."));
-    };
-    image.src = url;
+  const canvas = await html2canvas(page, {
+    backgroundColor: "#ffffff",
+    scale,
+    logging: false,
+    useCORS: false,
+    allowTaint: false,
+    width: Math.ceil(widthPx),
+    height: Math.ceil(heightPx),
+    windowWidth: Math.max(document.documentElement.clientWidth, Math.ceil(widthPx)),
+    windowHeight: Math.max(document.documentElement.clientHeight, Math.ceil(heightPx)),
+    scrollX: 0,
+    scrollY: 0,
+    removeContainer: true,
   });
+  assertNotAborted(signal);
+  const blob = await canvasToBlob(canvas, "image/png", 1);
+  canvas.width = 1;
+  canvas.height = 1;
+  return {
+    blob,
+    widthPoints: widthPx * 0.75,
+    heightPoints: heightPx * 0.75,
+  };
 }
 
 function waitForPaint() {

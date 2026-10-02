@@ -2,7 +2,7 @@
 
 **Drop. Edit. Done.**
 
-FastFiles is a privacy-focused, local-first PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
+FastFiles is a privacy-focused, local-first document, PDF, image and QR utility built with Next.js and TypeScript. File tools validate what the browser can read and reveal compatible actions; QR codes can be generated immediately without uploading a file.
 
 ## FastFiles v0.3.0 — Editing Experience & Product Quality
 
@@ -10,6 +10,7 @@ FastFiles v0.3.0 turns the existing local-first tools into a more complete brows
 
 ### Highlights
 
+- **Word ↔ PDF** — DOCX → PDF page rendering and text-based PDF → editable DOCX reconstruction run locally in the browser, with quality analysis, scan detection, progress, cancellation, and no cloud conversion.
 - **Image Editor V3** — full-resolution export backed by a lightweight live preview, freeform/preset crop, eight resize handles, zoom/pan, 90° and custom rotation, flip, Before/After, Reset, and state-only Undo/Redo.
 - **Resize and compression** — Original/25%/50%/75%/1080px/1920px/1440p/4K presets, custom dimensions, aspect lock, four quality presets, estimated pre-export size, and actual Result Center metrics.
 - **Watermark V2** — text or PNG/JPG/WebP logo watermark, nine presets or normalized drag positioning, size, opacity, rotation, color, weight, shadow intensity, margin, and tiled repeat mode.
@@ -108,6 +109,14 @@ The QR workspace supports Thai/English UI, Light/Dark/System themes and responsi
 - Mixed PDF + image selections do not receive actions that would fail on that combination.
 - Large-workload warning based on file count, total bytes and known PDF page counts. This is a safety warning, not a claimed browser file-size limit.
 
+### Document conversion
+
+- DOCX → PDF with browser-side DOCX validation, page size/margins, common text styling, page breaks, simple tables, embedded images, headers and footers.
+- Text-based PDF → editable DOCX with reconstructed paragraphs, inferred headings, simple tables, multi-column reading order, page breaks and best-effort image extraction.
+- Image-only/scanned PDFs are detected and stopped with an OCR-required message instead of producing an empty Word file.
+- Legacy `.doc` is intentionally unsupported; save as `.docx` before conversion.
+- Conversion results stay in memory until downloaded or the current session is discarded.
+
 ### PDF tools
 
 - Merge PDF
@@ -164,6 +173,10 @@ Image re-encoding uses browser Canvas APIs. Re-encoding commonly drops source me
 
 ## Known limitations
 
+- Word → PDF currently prioritizes visual fidelity using page rasterization, so selectable/searchable PDF text is not guaranteed.
+- PDF → Word reconstructs document structure heuristically; complex magazines, floating objects, equations, advanced WordArt, unusual embedded fonts, and heavily designed layouts may differ from the source.
+- Scanned/image-only PDF → Word requires OCR, which is not bundled in this implementation.
+- Legacy `.doc` files are not supported; DOCX is the supported Word input.
 - Password-protected PDFs are detected but cannot be unlocked.
 - PDF metadata clearing targets text fields supported by `pdf-lib`; document dates or other low-level metadata may remain.
 - Browser memory limits vary by device, browser and file content. FastFiles intentionally does not publish an unverified maximum file size.

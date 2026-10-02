@@ -326,7 +326,7 @@ export async function imagesToPdf(files: File[], onProgress?: (done: number, tot
 
 let pdfWorkerConfigured = false;
 
-async function getPdfJs() {
+export async function getPdfJs() {
   const pdfjs = await import("pdfjs-dist");
   if (!pdfWorkerConfigured) {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();

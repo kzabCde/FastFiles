@@ -8,6 +8,8 @@ import ResultCenter, { type WorkspaceResult } from "./ResultCenter";
 import LiveImageWorkspace from "./LiveImageWorkspace";
 import PdfPreview from "./PdfPreview";
 import NavigationMenu from "./NavigationMenu";
+import HtmlToPdfWorkspace from "./HtmlToPdfWorkspace";
+import PdfToHtmlWorkspace from "./PdfToHtmlWorkspace";
 import {
   addPdfPageNumbers,
   clearPdfTextMetadata,
@@ -138,6 +140,8 @@ export default function ToolWorkspace({ tool, files, language, onBack, onReset, 
       {tool.id === "page-numbers" && <PageNumbersWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-metadata" && <MetadataWorkspace file={files[0]} language={language} run={run} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-text" && <PdfTextWorkspace file={files[0]} language={language} run={run} update={update} busy={busy} onReset={onReset} />}
+      {tool.id === "pdf-to-html" && <PdfToHtmlWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
+      {tool.id === "html-to-pdf" && <HtmlToPdfWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "images-to-pdf" && <ImagesToPdfWorkspace files={files} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "pdf-to-images" && <PdfToImagesWorkspace file={files[0]} language={language} run={run} update={update} setResult={resultSetter} busy={busy} />}
       {tool.id === "watermark" && (files[0] && kindOf(files[0]) === "pdf" ? (

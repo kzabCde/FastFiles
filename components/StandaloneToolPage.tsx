@@ -24,6 +24,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [htmlDraft, setHtmlDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,12 +49,14 @@ export default function StandaloneToolPage({ tool }: Props) {
 
   const acceptsPdf = tool.accepts.includes("pdf");
   const acceptsImage = tool.accepts.includes("image");
+  const acceptsHtml = tool.accepts.includes("html");
   const inputAccept = useMemo(() => {
     const values: string[] = [];
     if (acceptsPdf) values.push("application/pdf", ".pdf");
     if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", "image/avif", ".jpg", ".jpeg", ".png", ".webp", ".avif");
+    if (acceptsHtml) values.push("text/html", ".html", ".htm");
     return values.join(",");
-  }, [acceptsPdf, acceptsImage]);
+  }, [acceptsPdf, acceptsImage, acceptsHtml]);
 
   const openPicker = () => {
     setError("");
@@ -65,7 +68,7 @@ export default function StandaloneToolPage({ tool }: Props) {
     setError("");
     const matching = incoming.filter((file) => {
       const kind = kindOf(file);
-      return (kind === "pdf" && acceptsPdf) || (kind === "image" && acceptsImage);
+      return (kind === "pdf" && acceptsPdf) || (kind === "image" && acceptsImage) || (kind === "html" && acceptsHtml);
     });
 
     if (!matching.length) {
@@ -132,7 +135,7 @@ export default function StandaloneToolPage({ tool }: Props) {
   }
 
   const title = language === "th" ? tool.thai : tool.label;
-  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
+  const fileHint = acceptsHtml ? "HTML · HTM" : acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
 
   return (
     <main
@@ -202,6 +205,29 @@ export default function StandaloneToolPage({ tool }: Props) {
           </button>
         </div>
       </section>
+
+      {tool.id === "html-to-pdf" && (
+        <section className="html-paste-panel" aria-labelledby="html-paste-title">
+          <div>
+            <span className="section-kicker">HTML INPUT</span>
+            <h2 id="html-paste-title">{language === "th" ? "หรือวางโค้ด HTML" : "Or paste HTML"}</h2>
+            <p>{language === "th" ? "สคริปต์และการเชื่อมต่อภายนอกจะถูกปิดก่อนแสดงตัวอย่าง" : "Scripts and external connections are disabled before previewing."}</p>
+          </div>
+          <textarea
+            aria-label={language === "th" ? "โค้ด HTML" : "HTML code"}
+            value={htmlDraft}
+            onChange={(event) => setHtmlDraft(event.target.value)}
+            placeholder="<!doctype html>\n<html>…</html>"
+          />
+          <button
+            className="primary-button"
+            disabled={!htmlDraft.trim() || checking}
+            onClick={() => void acceptFiles([new File([htmlDraft], "pasted-document.html", { type: "text/html" })])}
+          >
+            {language === "th" ? "เปิดตัวอย่าง" : "OPEN PREVIEW"} ↗
+          </button>
+        </section>
+      )}
 
       {error && <div className="error-panel" role="alert"><strong>{language === "th" ? "เลือกไฟล์อีกครั้ง" : "Choose files again"}</strong><span>{error}</span></div>}
       {dragging && <div className="drag-overlay"><strong>{language === "th" ? "วางไฟล์เพื่อเริ่ม" : "Drop to start"}</strong></div>}

@@ -30,6 +30,7 @@ export default function FileQueue({
     files: "ไฟล์",
     pdf: "PDF",
     images: "รูป",
+    html: "HTML",
     ready: "พร้อม",
     checking: "กำลังตรวจ",
     warning: "ตรวจสอบ",
@@ -43,6 +44,7 @@ export default function FileQueue({
     files: "files",
     pdf: "PDF",
     images: "images",
+    html: "HTML",
     ready: "Ready",
     checking: "Checking",
     warning: "Review",
@@ -56,7 +58,7 @@ export default function FileQueue({
         <div>
           <span className="section-kicker">{t.title}</span>
           <strong>{summary.count} {t.files} · {formatBytes(summary.totalSize)} {t.total}</strong>
-          <small>{summary.pdfCount} {t.pdf} · {summary.imageCount} {t.images}{summary.errorCount ? ` · ${summary.errorCount} ${t.error}` : ""}</small>
+          <small>{summary.pdfCount} {t.pdf} · {summary.imageCount} {t.images} · {summary.htmlCount} {t.html}{summary.errorCount ? ` · ${summary.errorCount} ${t.error}` : ""}</small>
         </div>
         <div className="queue-actions">
           <button className="secondary-button compact" onClick={onAdd}>+ {t.add}</button>
@@ -84,7 +86,7 @@ export default function FileQueue({
             >
               <span /> <span /> <span />
             </button>
-            <div className="queue-type">{item.kind === "pdf" ? "PDF" : item.kind === "image" ? "IMG" : "?"}</div>
+            <div className="queue-type">{item.kind === "pdf" ? "PDF" : item.kind === "image" ? "IMG" : item.kind === "html" ? "HTML" : "?"}</div>
             <div className="queue-file-copy">
               <strong title={item.file.name}>{item.file.name}</strong>
               <span>{formatBytes(item.file.size)}{item.pageCount ? ` · ${item.pageCount} ${language === "th" ? "หน้า" : "pages"}` : ""}{item.width && item.height ? ` · ${item.width}×${item.height}` : ""}</span>

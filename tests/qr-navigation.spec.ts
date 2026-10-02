@@ -57,6 +57,8 @@ test("desktop Tools tab opens a dropdown with categories and QR groups", async (
   await expect(dropdown.getByRole("link", { name: /Resize Image/i })).toHaveCount(0);
   await expect(dropdown.getByRole("link", { name: /Compress Image/i })).toHaveCount(0);
   await expect(dropdown.getByRole("link", { name: /QR Generator/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /^HTML to PDF$/i })).toBeVisible();
+  await expect(dropdown.getByRole("link", { name: /^PDF to HTML$/i })).toBeVisible();
 
   await menu.click();
   await expect(menu).toHaveAttribute("aria-expanded", "false");

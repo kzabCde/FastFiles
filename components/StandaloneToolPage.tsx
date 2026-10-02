@@ -5,6 +5,7 @@ import Link from "next/link";
 import FastFilesMark from "./FastFilesMark";
 import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
+import DocumentToolWorkspace from "./DocumentToolWorkspace";
 import { kindOf, type ToolDefinition } from "@/lib/tools";
 import { fileIssueMessage, inspectFiles } from "@/lib/file-intake";
 
@@ -48,12 +49,14 @@ export default function StandaloneToolPage({ tool }: Props) {
 
   const acceptsPdf = tool.accepts.includes("pdf");
   const acceptsImage = tool.accepts.includes("image");
+  const acceptsDocx = tool.accepts.includes("docx");
   const inputAccept = useMemo(() => {
     const values: string[] = [];
     if (acceptsPdf) values.push("application/pdf", ".pdf");
+    if (acceptsDocx) values.push("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx");
     if (acceptsImage) values.push("image/jpeg", "image/png", "image/webp", "image/avif", ".jpg", ".jpeg", ".png", ".webp", ".avif");
     return values.join(",");
-  }, [acceptsPdf, acceptsImage]);
+  }, [acceptsPdf, acceptsImage, acceptsDocx]);
 
   const openPicker = () => {
     setError("");
@@ -63,9 +66,15 @@ export default function StandaloneToolPage({ tool }: Props) {
 
   const acceptFiles = async (incoming: File[]) => {
     setError("");
+    if (tool.id === "word-to-pdf" && incoming.some((file) => /\.doc$/i.test(file.name) || file.type === "application/msword")) {
+      setError(language === "th"
+        ? "ยังไม่รองรับไฟล์ .doc รุ่นเก่า กรุณาบันทึกเป็น .docx แล้วลองอีกครั้ง"
+        : "Legacy .doc files are not supported yet. Save the document as .docx and try again.");
+      return;
+    }
     const matching = incoming.filter((file) => {
       const kind = kindOf(file);
-      return (kind === "pdf" && acceptsPdf) || (kind === "image" && acceptsImage);
+      return (kind === "pdf" && acceptsPdf) || (kind === "docx" && acceptsDocx) || (kind === "image" && acceptsImage);
     });
 
     if (!matching.length) {
@@ -118,8 +127,9 @@ export default function StandaloneToolPage({ tool }: Props) {
   }, [files.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (files.length) {
+    const Workspace = tool.id === "word-to-pdf" || tool.id === "pdf-to-word" ? DocumentToolWorkspace : ToolWorkspace;
     return (
-      <ToolWorkspace
+      <Workspace
         tool={tool}
         files={files}
         language={language}
@@ -132,7 +142,13 @@ export default function StandaloneToolPage({ tool }: Props) {
   }
 
   const title = language === "th" ? tool.thai : tool.label;
-  const fileHint = acceptsPdf && acceptsImage ? "PDF · JPG · PNG · WEBP · AVIF" : acceptsPdf ? "PDF" : "JPG · PNG · WEBP · AVIF";
+  const fileHint = acceptsDocx
+    ? "DOCX"
+    : acceptsPdf && acceptsImage
+      ? "PDF · JPG · PNG · WEBP · AVIF"
+      : acceptsPdf
+        ? "PDF"
+        : "JPG · PNG · WEBP · AVIF";
 
   return (
     <main

@@ -305,160 +305,158 @@ export default function ImagesToPdfWorkspace({
         </div>
 
         {/* View Mode 1: Simulated PDF Sheet Preview */}
-        {viewMode === "sheet" ? (
-          <div className="img-sheet-container">
-            {/* Sheet Page Navigation Bar */}
-            {totalPages > 1 && (
-              <div className="sheet-pagination">
-                <button
-                  type="button"
-                  className="page-nav-btn"
-                  disabled={safePageIndex === 0}
-                  onClick={() => setActivePageIndex((p) => Math.max(0, p - 1))}
-                  aria-label="Previous page"
-                >
-                  ◀
-                </button>
-                <span className="page-nav-info">
-                  {t.page} <strong>{safePageIndex + 1}</strong> {t.of} {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="page-nav-btn"
-                  disabled={safePageIndex >= totalPages - 1}
-                  onClick={() => setActivePageIndex((p) => Math.min(totalPages - 1, p + 1))}
-                  aria-label="Next page"
-                >
-                  ▶
-                </button>
-              </div>
-            )}
-
-            {/* Simulated Paper Sheet */}
-            <div
-              className={`img-sim-sheet ${isLandscape ? "landscape" : "portrait"}`}
-              style={{ padding: marginPadding }}
-            >
-              <div
-                className="img-sim-grid"
-                style={{
-                  gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-                  gridTemplateRows: `repeat(${gridRows}, 1fr)`,
-                  gap: gapSize,
-                }}
+        <div className="img-sheet-container" hidden={viewMode !== "sheet"}>
+          {/* Sheet Page Navigation Bar */}
+          {totalPages > 1 && (
+            <div className="sheet-pagination">
+              <button
+                type="button"
+                className="page-nav-btn"
+                disabled={safePageIndex === 0}
+                onClick={() => setActivePageIndex((p) => Math.max(0, p - 1))}
+                aria-label="Previous page"
               >
-                {currentChunk.map((file, idx) => {
-                  const globalIdx = safePageIndex * layout + idx + 1;
-                  return (
-                    <div key={`${file.name}-${globalIdx}`} className="img-sim-cell">
-                      <SimCellImage file={file} fit={fit} alt={file.name} />
-                      <span className="img-cell-tag">#{globalIdx}</span>
-                    </div>
-                  );
-                })}
-
-                {/* Empty placeholders to fill out the grid on last page */}
-                {Array.from({ length: layout - currentChunk.length }).map((_, i) => (
-                  <div key={`empty-${i}`} className="img-sim-cell empty-cell" />
-                ))}
-              </div>
+                ◀
+              </button>
+              <span className="page-nav-info">
+                {t.page} <strong>{safePageIndex + 1}</strong> {t.of} {totalPages}
+              </span>
+              <button
+                type="button"
+                className="page-nav-btn"
+                disabled={safePageIndex >= totalPages - 1}
+                onClick={() => setActivePageIndex((p) => Math.min(totalPages - 1, p + 1))}
+                aria-label="Next page"
+              >
+                ▶
+              </button>
             </div>
+          )}
 
-            <div className="sheet-footer-note">
-              <span>{t.summary}</span> · <span>{layout} {t.images}/{t.page}</span>
-            </div>
-          </div>
-        ) : (
-          /* View Mode 2: Reorder & Image List Manager */
-          <div className="img-manage-container">
-            <div className="img-manage-grid">
-              {orderedFiles.map((file, index) => {
+          {/* Simulated Paper Sheet */}
+          <div
+            className={`img-sim-sheet ${isLandscape ? "landscape" : "portrait"}`}
+            style={{ padding: marginPadding }}
+          >
+            <div
+              className="img-sim-grid"
+              style={{
+                gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+                gridTemplateRows: `repeat(${gridRows}, 1fr)`,
+                gap: gapSize,
+              }}
+            >
+              {currentChunk.map((file, idx) => {
+                const globalIdx = safePageIndex * layout + idx + 1;
                 return (
-                  <div
-                    key={`${file.name}-${index}`}
-                    className={`img-manage-card ${dragOverIndex === index ? "drag-over" : ""} ${draggingIndex === index ? "is-dragging" : ""}`}
-                    draggable
-                    onDragStart={(e) => {
-                      dragItem.current = index;
-                      setDraggingIndex(index);
-                      e.dataTransfer.setData("application/x-fastfiles-reorder", String(index));
-                      e.dataTransfer.effectAllowed = "move";
-                      e.stopPropagation();
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (e.dataTransfer) {
-                        e.dataTransfer.dropEffect = "move";
-                      }
-                      if (dragOverIndex !== index) {
-                        setDragOverIndex(index);
-                      }
-                    }}
-                    onDragLeave={(e) => {
-                      if (e.currentTarget === e.target) {
-                        setDragOverIndex((curr) => (curr === index ? null : curr));
-                      }
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const from = dragItem.current;
-                      dragItem.current = null;
-                      setDraggingIndex(null);
-                      setDragOverIndex(null);
-                      if (from !== null && from !== index) {
-                        moveFile(from, index);
-                      }
-                    }}
-                    onDragEnd={() => {
-                      dragItem.current = null;
-                      setDraggingIndex(null);
-                      setDragOverIndex(null);
-                    }}
-                  >
-                    <div className="card-thumb-wrap">
-                      <ManageCardThumb file={file} />
-                      <span className="card-badge">#{index + 1}</span>
-                      {orderedFiles.length > 1 && (
-                        <button
-                          type="button"
-                          className="card-remove-btn"
-                          onClick={() => removeFile(index)}
-                          title="Remove image"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    <div className="card-details">
-                      <strong title={file.name}>{file.name}</strong>
-                      <small>{formatBytes(file.size)}</small>
-                    </div>
-                    <div className="card-reorder-actions">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => moveFile(index, index - 1)}
-                        title="Move left"
-                      >
-                        ◀
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === orderedFiles.length - 1}
-                        onClick={() => moveFile(index, index + 1)}
-                        title="Move right"
-                      >
-                        ▶
-                      </button>
-                    </div>
+                  <div key={`${file.name}-${globalIdx}`} className="img-sim-cell">
+                    <SimCellImage file={file} fit={fit} alt={file.name} />
+                    <span className="img-cell-tag">#{globalIdx}</span>
                   </div>
                 );
               })}
+
+              {/* Empty placeholders to fill out the grid on last page */}
+              {Array.from({ length: layout - currentChunk.length }).map((_, i) => (
+                <div key={`empty-${i}`} className="img-sim-cell empty-cell" />
+              ))}
             </div>
           </div>
-        )}
+
+          <div className="sheet-footer-note">
+            <span>{t.summary}</span> · <span>{layout} {t.images}/{t.page}</span>
+          </div>
+        </div>
+
+        {/* View Mode 2: Reorder & Image List Manager */}
+        <div className="img-manage-container" hidden={viewMode !== "manage"}>
+          <div className="img-manage-grid">
+            {orderedFiles.map((file, index) => {
+              return (
+                <div
+                  key={`${file.name}-${index}`}
+                  className={`img-manage-card ${dragOverIndex === index ? "drag-over" : ""} ${draggingIndex === index ? "is-dragging" : ""}`}
+                  draggable
+                  onDragStart={(e) => {
+                    dragItem.current = index;
+                    setDraggingIndex(index);
+                    e.dataTransfer.setData("application/x-fastfiles-reorder", String(index));
+                    e.dataTransfer.effectAllowed = "move";
+                    e.stopPropagation();
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.dataTransfer) {
+                      e.dataTransfer.dropEffect = "move";
+                    }
+                    if (dragOverIndex !== index) {
+                      setDragOverIndex(index);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget === e.target) {
+                      setDragOverIndex((curr) => (curr === index ? null : curr));
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const from = dragItem.current;
+                    dragItem.current = null;
+                    setDraggingIndex(null);
+                    setDragOverIndex(null);
+                    if (from !== null && from !== index) {
+                      moveFile(from, index);
+                    }
+                  }}
+                  onDragEnd={() => {
+                    dragItem.current = null;
+                    setDraggingIndex(null);
+                    setDragOverIndex(null);
+                  }}
+                >
+                  <div className="card-thumb-wrap">
+                    <ManageCardThumb file={file} />
+                    <span className="card-badge">#{index + 1}</span>
+                    {orderedFiles.length > 1 && (
+                      <button
+                        type="button"
+                        className="card-remove-btn"
+                        onClick={() => removeFile(index)}
+                        title="Remove image"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <div className="card-details">
+                    <strong title={file.name}>{file.name}</strong>
+                    <small>{formatBytes(file.size)}</small>
+                  </div>
+                  <div className="card-reorder-actions">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => moveFile(index, index - 1)}
+                      title="Move left"
+                    >
+                      ◀
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === orderedFiles.length - 1}
+                      onClick={() => moveFile(index, index + 1)}
+                      title="Move right"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Control Panel */}

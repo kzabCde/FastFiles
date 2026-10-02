@@ -134,9 +134,9 @@ test("images to PDF workspace supports grid layout, reorder, and custom options"
   // Switch to reorder/manage view
   const reorderTab = page.getByTestId("view-mode-manage");
   await reorderTab.scrollIntoViewIfNeeded();
-  await reorderTab.click({ force: true });
-  // Wait for the sheet view to disappear and manage view to appear
-  await expect(page.locator(".img-sim-sheet")).toBeHidden();
+  await reorderTab.click();
+  // Wait for the sheet view to hide and manage view to appear
+  await expect(page.locator(".img-sheet-container")).toBeHidden();
   await expect(page.locator(".img-manage-container")).toBeVisible();
   await expect(page.locator(".img-manage-card")).toHaveCount(4);
 

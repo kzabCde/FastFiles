@@ -1,8 +1,42 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatBytes } from "@/lib/download";
 import { fileIssueMessage, type FileQueueItem, type QueueSummary } from "@/lib/file-intake";
+
+function QueueThumbnail({ item }: { item: FileQueueItem }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item.kind !== "image" || !item.file) {
+      setSrc(null);
+      return;
+    }
+    const url = URL.createObjectURL(item.file);
+    setSrc(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [item.file, item.kind]);
+
+  if (item.kind === "image" && src) {
+    return (
+      <div className="queue-type queue-thumb-media" title={item.file.name}>
+        <img
+          src={src}
+          alt={item.file.name}
+          className="queue-img-preview"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  const kindClass = item.kind === "pdf" ? "queue-type-pdf" : item.kind === "html" ? "queue-type-html" : "";
+  const label = item.kind === "pdf" ? "PDF" : item.kind === "image" ? "IMG" : item.kind === "html" ? "HTML" : "?";
+
+  return <div className={`queue-type ${kindClass}`}>{label}</div>;
+}
 
 export default function FileQueue({
   items,
@@ -86,7 +120,7 @@ export default function FileQueue({
             >
               <span /> <span /> <span />
             </button>
-            <div className="queue-type">{item.kind === "pdf" ? "PDF" : item.kind === "image" ? "IMG" : item.kind === "html" ? "HTML" : "?"}</div>
+            <QueueThumbnail item={item} />
             <div className="queue-file-copy">
               <strong title={item.file.name}>{item.file.name}</strong>
               <span>{formatBytes(item.file.size)}{item.pageCount ? ` · ${item.pageCount} ${language === "th" ? "หน้า" : "pages"}` : ""}{item.width && item.height ? ` · ${item.width}×${item.height}` : ""}</span>
@@ -100,3 +134,4 @@ export default function FileQueue({
     </div>
   );
 }
+

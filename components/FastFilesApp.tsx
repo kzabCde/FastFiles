@@ -287,7 +287,13 @@ export default function FastFilesApp() {
             {!queue.length ? (
               <div className="drop-content"><span className="drop-plus">+</span><strong>{t.drop}</strong><span>{t.dropSub}</span><div className="format-pills"><small>PDF</small><small>JPG</small><small>PNG</small><small>WEBP</small><small>AVIF</small></div><span className="browse-link">{t.browse} <b>→</b></span><span className="paste-hint muted">{language === "th" ? "หรือกด Ctrl+V วางจาก clipboard" : "or press Ctrl+V to paste from clipboard"}</span></div>
             ) : (
-              <div className="drop-content loaded"><span className="ready-badge"><span className="live-dot" /> {t.detected}</span><strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong><span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.imageCount} IMG · {summary.htmlCount} HTML</span><span className="browse-link">+ {t.newFiles}</span></div>
+              <div className="drop-content loaded">
+                <span className="ready-badge"><span className="live-dot" /> {t.detected}</span>
+                <DropzoneThumbnails items={queue} />
+                <strong>{summary.count} {language === "th" ? "ไฟล์" : summary.count === 1 ? "file" : "files"}</strong>
+                <span>{formatBytes(summary.totalSize)} · {summary.pdfCount} PDF · {summary.imageCount} IMG · {summary.htmlCount} HTML</span>
+                <span className="browse-link">+ {t.newFiles}</span>
+              </div>
             )}
           </button>
         </div>
@@ -390,3 +396,40 @@ function QrGlyph() { return <svg viewBox="0 0 24 24" fill="none" stroke="current
 function SearchIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>; }
 function ShieldIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.6-2.7 7.8-7 10-4.3-2.2-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>; }
 function SparkIcon() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.7 4.2 2.8 6.3 7 7-4.2.7-6.3 2.8-7 7-.7-4.2-2.8-6.3-7-7 4.2-.7 6.3-2.8 7-7Z"/><path d="M19 16c.2 1.4.9 2.1 2.3 2.3-1.4.2-2.1.9-2.3 2.3-.2-1.4-.9-2.1-2.3-2.3 1.4-.2 2.1-.9 2.3-2.3Z"/></svg>; }
+
+function DropzoneThumbnails({ items }: { items: FileQueueItem[] }) {
+  const images = items.filter((item) => item.kind === "image");
+  if (!images.length) return null;
+
+  return (
+    <div className="dropzone-thumbnails">
+      {images.slice(0, 4).map((item) => (
+        <DropzoneThumbItem key={item.id} file={item.file} />
+      ))}
+      {images.length > 4 && (
+        <span className="dropzone-more-badge">+{images.length - 4}</span>
+      )}
+    </div>
+  );
+}
+
+function DropzoneThumbItem({ file }: { file: File }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  if (!src) return null;
+
+  return (
+    <span className="dropzone-thumb" title={file.name}>
+      <img src={src} alt={file.name} loading="lazy" />
+    </span>
+  );
+}
+

@@ -85,3 +85,18 @@ test("converter pages remain usable without horizontal overflow on mobile", asyn
   const metrics = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   expect(metrics.scroll).toBeLessThanOrEqual(metrics.width + 1);
 });
+
+test("uploading or dropping an image renders live thumbnail in queue and dropzone", async ({ page }) => {
+  await page.goto("/");
+  // 1x1 transparent PNG
+  const pngBuffer = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+  await page.locator('input[type="file"]').setInputFiles({ name: "sample-preview.png", mimeType: "image/png", buffer: pngBuffer });
+  await expect(page.getByTestId("file-queue")).toBeVisible();
+  const queueImg = page.locator(".queue-row .queue-img-preview");
+  await expect(queueImg).toBeVisible();
+  await expect(queueImg).toHaveAttribute("src", /^blob:/);
+  const dropzoneThumb = page.locator(".dropzone-thumb img");
+  await expect(dropzoneThumb).toBeVisible();
+  await expect(dropzoneThumb).toHaveAttribute("src", /^blob:/);
+});
+

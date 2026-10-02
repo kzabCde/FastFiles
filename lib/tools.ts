@@ -1,15 +1,19 @@
 export type ToolId =
   | "merge-pdf"
+  | "compress-pdf"
   | "organize-pdf"
+  | "rotate-pdf"
   | "split-pdf"
   | "page-numbers"
   | "pdf-metadata"
+  | "pdf-text"
   | "images-to-pdf"
   | "pdf-to-images"
   | "image-convert"
   | "image-resize"
   | "image-compress"
-  | "watermark";
+  | "watermark"
+  | "pdf-sign";
 
 export type FileKind = "pdf" | "image" | "mixed" | "unsupported";
 
@@ -31,17 +35,34 @@ const LEGACY_IMAGE_TOOLS: ToolDefinition[] = [
 
 export const TOOLS: ToolDefinition[] = [
   { id: "merge-pdf", label: "Merge PDF", thai: "รวม PDF", short: "MERGE", accepts: ["pdf"], multiple: true, aliases: ["merge pdf", "combine pdf", "join pdf", "รวม pdf", "รวมไฟล์ pdf"] },
+  { id: "compress-pdf", label: "Compress Scanned PDF", thai: "บีบอัด PDF สแกน", short: "COMPRESS PDF", accepts: ["pdf"], aliases: ["compress pdf", "reduce pdf size", "small pdf", "บีบอัด pdf", "ลดขนาด pdf", "pdf สแกน"] },
   { id: "organize-pdf", label: "Organize PDF", thai: "จัดหน้า PDF", short: "ORGANIZE", accepts: ["pdf"], aliases: ["organize pdf", "reorder pages", "delete page", "duplicate page", "rotate page", "จัดหน้า pdf", "เรียงหน้า"] },
+  { id: "rotate-pdf", label: "Rotate PDF", thai: "หมุน PDF", short: "ROTATE", accepts: ["pdf"], aliases: ["rotate pdf", "flip pdf", "turn pdf", "landscape", "portrait", "หมุน pdf", "พลิก pdf", "หมุนหน้า"] },
   { id: "split-pdf", label: "Split / Extract PDF", thai: "แยก / ดึงหน้า PDF", short: "SPLIT", accepts: ["pdf"], aliases: ["split pdf", "extract pages", "separate pdf", "แยก pdf", "ดึงหน้า pdf"] },
   { id: "page-numbers", label: "Add Page Numbers", thai: "ใส่เลขหน้า PDF", short: "NUMBER", accepts: ["pdf"], aliases: ["page numbers", "number pdf", "add page number", "เลขหน้า", "ใส่เลขหน้า pdf"] },
   { id: "pdf-metadata", label: "PDF Metadata", thai: "ข้อมูล PDF", short: "METADATA", accepts: ["pdf"], aliases: ["pdf metadata", "document info", "remove metadata", "ข้อมูล pdf", "ลบ metadata"] },
+  { id: "pdf-text", label: "Extract PDF Text", thai: "ดึงข้อความจาก PDF", short: "PDF → TEXT", accepts: ["pdf"], aliases: ["extract pdf text", "pdf to text", "pdf to txt", "copy pdf text", "ดึงข้อความ pdf", "pdf เป็นข้อความ"] },
   { id: "images-to-pdf", label: "Images to PDF", thai: "รูปภาพเป็น PDF", short: "IMAGE → PDF", accepts: ["image"], multiple: true, aliases: ["jpg to pdf", "png to pdf", "images to pdf", "รูปเป็น pdf", "ภาพเป็น pdf"] },
   { id: "pdf-to-images", label: "PDF to Images", thai: "PDF เป็นรูปภาพ", short: "PDF → IMAGE", accepts: ["pdf"], aliases: ["pdf to jpg", "pdf to png", "pdf to image", "pdf เป็นรูป", "แปลง pdf เป็นรูป"] },
   { id: "image-convert", label: "Image Editor", thai: "แก้ไขรูปภาพ", short: "IMAGE EDIT", accepts: ["image"], multiple: true, aliases: ["image editor", "convert image", "resize image", "compress image", "crop image", "jpg to webp", "png to jpg", "avif", "แก้ไขรูปภาพ", "แปลงรูป", "ปรับขนาดรูป", "บีบอัดรูป", "ตัดรูป"] },
   { id: "watermark", label: "Watermark", thai: "ใส่ลายน้ำ", short: "WATERMARK", accepts: ["pdf", "image"], aliases: ["watermark pdf", "watermark image", "add watermark", "image watermark", "ลายน้ำ", "ใส่ลายน้ำ", "ลายน้ำรูป"] },
+  { id: "pdf-sign", label: "Sign PDF", thai: "เซ็นเอกสาร PDF", short: "SIGN", accepts: ["pdf"], aliases: ["sign pdf", "digital signature", "e-sign", "esign", "เซ็น pdf", "ลายเซ็น", "เซ็นเอกสาร", "ลงลายเซ็น"] },
 ];
 
 export const ALL_TOOLS: ToolDefinition[] = [...TOOLS, ...LEGACY_IMAGE_TOOLS];
+
+export type ToolCategory = {
+  key: string;
+  en: string;
+  th: string;
+  toolIds: ToolId[];
+};
+
+export const TOOL_CATEGORIES: ToolCategory[] = [
+  { key: "edit", en: "Edit & Organize", th: "แก้ไขและจัดการ", toolIds: ["merge-pdf", "compress-pdf", "organize-pdf", "rotate-pdf", "split-pdf"] },
+  { key: "convert", en: "Convert", th: "แปลงไฟล์", toolIds: ["images-to-pdf", "pdf-to-images", "image-convert", "pdf-text"] },
+  { key: "enhance", en: "Enhance", th: "เพิ่มเติม", toolIds: ["page-numbers", "watermark", "pdf-sign", "pdf-metadata"] },
+];
 
 export function kindOf(file: File): "pdf" | "image" | "unsupported" {
   const name = file.name.toLowerCase();

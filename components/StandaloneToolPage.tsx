@@ -6,6 +6,7 @@ import FastFilesMark from "./FastFilesMark";
 import NavigationMenu from "./NavigationMenu";
 import ToolWorkspace from "./ToolWorkspace";
 import { kindOf, type ToolDefinition } from "@/lib/tools";
+import { fileIssueMessage, inspectFiles } from "@/lib/file-intake";
 
 type Language = "en" | "th";
 type Theme = "system" | "light" | "dark";
@@ -14,11 +15,15 @@ type Props = { tool: ToolDefinition };
 
 export default function StandaloneToolPage({ tool }: Props) {
   const [language, setLanguage] = useState<Language>("en");
-  const [theme, setTheme] = useState<Theme>("system");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "system";
+    return (window.localStorage.getItem("fastfiles-theme") as Theme | null) ?? "system";
+  });
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,7 +61,7 @@ export default function StandaloneToolPage({ tool }: Props) {
     inputRef.current?.click();
   };
 
-  const acceptFiles = (incoming: File[]) => {
+  const acceptFiles = async (incoming: File[]) => {
     setError("");
     const matching = incoming.filter((file) => {
       const kind = kindOf(file);
@@ -70,15 +75,47 @@ export default function StandaloneToolPage({ tool }: Props) {
 
     const firstKind = kindOf(matching[0]);
     const sameKind = matching.filter((file) => kindOf(file) === firstKind);
-    const next = tool.multiple ? sameKind : [sameKind[0]];
+    const candidates = tool.multiple ? sameKind : [sameKind[0]];
+    setChecking(true);
 
-    if (tool.id === "merge-pdf" && next.length < 2) {
-      setError(language === "th" ? "เลือก PDF อย่างน้อย 2 ไฟล์เพื่อรวมไฟล์" : "Select at least two PDFs to merge.");
-      return;
+    try {
+      const inspected = await inspectFiles(candidates);
+      const rejected = inspected.find((item) => item.status === "error");
+      if (rejected) {
+        const reason = fileIssueMessage(rejected.message ?? "unsupported", language);
+        setError(`${rejected.file.name}: ${reason}`);
+        return;
+      }
+
+      const next = inspected.map((item) => item.file);
+
+      if (tool.id === "merge-pdf" && next.length < 2) {
+        setError(language === "th" ? "เลือก PDF อย่างน้อย 2 ไฟล์เพื่อรวมไฟล์" : "Select at least two PDFs to merge.");
+        return;
+      }
+
+      setFiles(next);
+    } finally {
+      setChecking(false);
     }
-
-    setFiles(next);
   };
+
+  useEffect(() => {
+    if (files.length) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const pasted = [...(event.clipboardData?.files ?? [])].map((file) => {
+        if (file.name === "image.png" || file.name === "Untitled" || !file.name) {
+          const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+          const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
+          return new File([file], `clipboard-${stamp}.${ext}`, { type: file.type });
+        }
+        return file;
+      });
+      if (pasted.length) void acceptFiles(pasted);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [files.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (files.length) {
     return (
@@ -86,9 +123,10 @@ export default function StandaloneToolPage({ tool }: Props) {
         tool={tool}
         files={files}
         language={language}
-        onToggleLanguage={() => setLanguage((value) => value === "en" ? "th" : "en")}
+        onToggleLanguage={() => setLanguage((value) => (value === "en" ? "th" : "en"))}
         onBack={() => setFiles([])}
         onReset={() => setFiles([])}
+        onSelectTool={(t) => { window.location.href = `/tools/${t.id}`; }}
       />
     );
   }
@@ -105,25 +143,40 @@ export default function StandaloneToolPage({ tool }: Props) {
       onDrop={(event) => {
         event.preventDefault();
         setDragging(false);
-        acceptFiles([...event.dataTransfer.files]);
+        void acceptFiles([...event.dataTransfer.files]);
       }}
     >
       <header className="site-header">
         <div className="header-inner">
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 10 }}>
-            <NavigationMenu language={language} />
+            <div className="mobile-only">
+              <NavigationMenu variant="mobile" language={language} />
+            </div>
             <Link className="brand" href="/" aria-label="FastFiles home"><FastFilesMark /><span>FastFiles</span></Link>
           </div>
-          <nav><Link href="/">Home</Link><Link href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link><Link href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</Link></nav>
+          <nav><Link href="/">Home</Link><NavigationMenu variant="desktop" language={language} /><Link href="/#privacy">{language === "th" ? "ความเป็นส่วนตัว" : "Privacy"}</Link><Link href="/#about">{language === "th" ? "เกี่ยวกับ" : "About"}</Link></nav>
           <div className="header-actions">
-            <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+            <select
+              aria-label="Theme"
+              value={theme}
+              onChange={(event) => {
+                const next = event.target.value as Theme;
+                document.documentElement.dataset.theme = next;
+                window.localStorage.setItem("fastfiles-theme", next);
+                setTheme(next);
+              }}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
             <button className="chip-button" onClick={() => setLanguage((value) => value === "en" ? "th" : "en")}>{language === "en" ? "TH" : "EN"}</button>
-            <button className="top-drop-button" onClick={openPicker}>{language === "th" ? "เลือกไฟล์" : "Choose files"}<span>+</span></button>
+            <button className="top-drop-button" onClick={openPicker} disabled={checking}>{language === "th" ? "เลือกไฟล์" : "Choose files"}<span>+</span></button>
           </div>
         </div>
       </header>
 
-      <input ref={inputRef} hidden multiple={Boolean(tool.multiple)} type="file" accept={inputAccept} onChange={(event) => acceptFiles([...(event.target.files ?? [])])} />
+      <input ref={inputRef} hidden multiple={Boolean(tool.multiple)} type="file" accept={inputAccept} onChange={(event) => void acceptFiles([...(event.target.files ?? [])])} />
 
       <section className="hero-section">
         <div className="hero-wrap">
@@ -137,12 +190,12 @@ export default function StandaloneToolPage({ tool }: Props) {
             </div>
           </div>
 
-          <button className="drop-surface" onClick={openPicker} data-testid="standalone-tool-dropzone">
+          <button className="drop-surface" onClick={openPicker} data-testid="standalone-tool-dropzone" disabled={checking}>
             <div className="drop-glow" aria-hidden="true" />
             <div className="drop-content">
               <span className="drop-plus">+</span>
-              <strong>{language === "th" ? "วางไฟล์ที่นี่" : "Drop files here"}</strong>
-              <span>{language === "th" ? "หรือคลิกเพื่อเลือกไฟล์" : "or click to browse"}</span>
+              <strong>{checking ? (language === "th" ? "กำลังตรวจไฟล์…" : "Checking file…") : (language === "th" ? "วางไฟล์ที่นี่" : "Drop files here")}</strong>
+              <span>{checking ? (language === "th" ? "FastFiles กำลังตรวจสอบว่าไฟล์ใช้งานได้" : "FastFiles is validating the selected file") : (language === "th" ? "หรือคลิกเพื่อเลือกไฟล์" : "or click to browse")}</span>
               <div className="format-pills">{fileHint.split(" · ").map((format) => <small key={format}>{format}</small>)}</div>
               <span className="browse-link">{language === "th" ? "เลือกไฟล์" : "Browse files"} <b>→</b></span>
             </div>

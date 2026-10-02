@@ -52,6 +52,7 @@ async function assertKeyTextNotClipped(page: Page) {
 
 test("landing page renders cleanly in English and Thai", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText("FastFiles v0.3.0", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByText(/Processed locally|files stay on your device/i).first()).toBeVisible();
   await assertNoHorizontalOverflow(page);
@@ -144,7 +145,7 @@ test("PDF thumbnails render and PDF to image download works without UI errors", 
   await expect(page.locator(".page-thumb img")).toHaveCount(2, { timeout: 20_000 });
   await assertNoHorizontalOverflow(page);
 
-  await page.getByRole("button", { name: /TOOLS/i }).click();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByRole("button", { name: /PDF to Images/i }).first().click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /CONVERT.*DOWNLOAD ZIP/i }).click();

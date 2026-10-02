@@ -111,15 +111,17 @@ The QR workspace supports Thai/English UI, Light/Dark/System themes and responsi
 ### PDF tools
 
 - Merge PDF
+- Compress scanned/image-heavy PDFs with Balanced and Small file presets, before/after comparison, and an explicit flattening warning
 - Organize PDF with progressive thumbnails, drag reorder, multi-select, rotate, delete, duplicate, extract, Select All, Undo/Redo and organizer-scoped keyboard shortcuts
 - Split PDF / extract page ranges
 - Add configurable page numbers
-- PDF metadata viewer and supported text-metadata clearing
+- PDF metadata viewer, editor and supported text-metadata clearing
+- PDF text extraction with page-range selection, in-browser preview, clipboard copy and TXT download
 - Images → PDF
 - PDF → PNG (ZIP export)
 - PDF watermarking
 
-Advanced PDF compression is intentionally **not** advertised in v0.2. The current `pdf-lib` architecture does not provide the kind of reliable content/image recompression expected from dedicated PDF optimizers; a future WASM-based implementation should be evaluated instead of presenting a fake compression button.
+The PDF compressor is intentionally scoped to **scanned and image-heavy PDFs**. It rasterizes each page to JPEG, compares the result against the original before download, and clearly warns that selectable text, links, forms, signatures and document structure are flattened. General-purpose, content-aware PDF optimization is not advertised; that still requires a suitable WASM engine.
 
 ### Image processing engine
 
@@ -250,7 +252,9 @@ npm run test:e2e
 - Added File Intake V2 and resilient local validation.
 - Added smart selection-aware tool suggestions.
 - Added Result Center and partial batch recovery.
-- Added PDF page numbering and metadata inspection/clearing.
+- Added PDF page numbering and metadata inspection/editing/clearing.
+- Added local PDF text extraction with page-range selection and TXT export.
+- Added honest scan/image-heavy PDF compression with two presets, before/after metrics, and no false savings claim when the output is larger.
 - Expanded PDF organizer controls and keyboard support.
 - Added a live Canvas image editor with crop presets/repositioning, rotate and flip.
 - Added image resize presets, optional aspect-ratio unlock, runtime-gated AVIF and batch cancellation/retry.

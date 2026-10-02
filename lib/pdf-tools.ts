@@ -7,6 +7,24 @@ export type PdfPageState = {
 
 export type ExportedFile = { name: string; blob: Blob };
 
+export type PdfTextPage = {
+  pageNumber: number;
+  text: string;
+};
+
+export type PdfTextFragment = {
+  str: string;
+  transform?: ArrayLike<number>;
+  hasEOL?: boolean;
+};
+
+export type RasterPdfCompressionPreset = "balanced" | "small";
+
+export type RasterPdfCompressionSettings = {
+  dpi: number;
+  quality: number;
+};
+
 export type PageNumberPosition =
   | "top-left"
   | "top-center"
@@ -27,10 +45,20 @@ export type PdfMetadata = {
   title?: string;
   author?: string;
   subject?: string;
+  keywords?: string;
   creator?: string;
   producer?: string;
   creationDate?: string;
   modificationDate?: string;
+};
+
+export type PdfMetadataPatch = {
+  title: string;
+  author: string;
+  subject: string;
+  keywords: string[];
+  creator: string;
+  producer: string;
 };
 
 export type PdfWatermarkOptions = {
@@ -41,6 +69,25 @@ export type PdfWatermarkOptions = {
   color: string;
   position: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
   pages: "all" | "odd" | "even" | "custom";
+  customPages?: string;
+};
+
+export type PdfRotationAngle = 90 | 180 | 270;
+export type PdfRotationScope = "all" | "odd" | "even" | "custom";
+
+export type PdfRotateOptions = {
+  angle: PdfRotationAngle;
+  scope: PdfRotationScope;
+  customPages?: string;
+};
+
+export type PdfSignatureOptions = {
+  imageData: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pages: "all" | "last" | "custom";
   customPages?: string;
 };
 
@@ -115,6 +162,23 @@ export async function organizePdf(file: File, pages: PdfPageState[]) {
   return bytesToBlob(bytes, "application/pdf");
 }
 
+export async function rotatePdfPages(file: File, options: PdfRotateOptions) {
+  const pdf = await loadPdf(file);
+  const total = pdf.getPageCount();
+  const custom = options.scope === "custom" ? new Set(parsePageRange(options.customPages ?? "", total)) : null;
+  if (options.scope === "custom" && !custom?.size) throw new Error("Enter a valid page range such as 1-3, 6, 9-12.");
+
+  pdf.getPages().forEach((page, index) => {
+    if (options.scope === "odd" && (index + 1) % 2 === 0) return;
+    if (options.scope === "even" && (index + 1) % 2 !== 0) return;
+    if (custom && !custom.has(index)) return;
+    const existing = page.getRotation().angle || 0;
+    page.setRotation(degrees((existing + options.angle) % 360));
+  });
+
+  return bytesToBlob(await pdf.save({ useObjectStreams: true }), "application/pdf");
+}
+
 export async function watermarkPdf(file: File, options: PdfWatermarkOptions) {
   const text = options.text.trim();
   if (!text) throw new Error("Enter watermark text first.");
@@ -185,11 +249,23 @@ export async function getPdfMetadata(file: File): Promise<PdfMetadata> {
     title: pdf.getTitle(),
     author: pdf.getAuthor(),
     subject: pdf.getSubject(),
+    keywords: pdf.getKeywords(),
     creator: pdf.getCreator(),
     producer: pdf.getProducer(),
     creationDate: formatDate(pdf.getCreationDate()),
     modificationDate: formatDate(pdf.getModificationDate()),
   };
+}
+
+export async function updatePdfMetadata(file: File, metadata: PdfMetadataPatch) {
+  const pdf = await loadPdf(file);
+  pdf.setTitle(metadata.title.trim());
+  pdf.setAuthor(metadata.author.trim());
+  pdf.setSubject(metadata.subject.trim());
+  pdf.setKeywords(metadata.keywords.map((keyword) => keyword.trim()).filter(Boolean));
+  pdf.setCreator(metadata.creator.trim());
+  pdf.setProducer(metadata.producer.trim());
+  return bytesToBlob(await pdf.save({ useObjectStreams: true, updateFieldAppearances: false }), "application/pdf");
 }
 
 export async function clearPdfTextMetadata(file: File) {
@@ -257,6 +333,63 @@ async function getPdfJs() {
     pdfWorkerConfigured = true;
   }
   return pdfjs;
+}
+
+export function getRasterPdfCompressionSettings(preset: RasterPdfCompressionPreset): RasterPdfCompressionSettings {
+  return preset === "small"
+    ? { dpi: 96, quality: 0.56 }
+    : { dpi: 144, quality: 0.78 };
+}
+
+export async function compressScannedPdf(
+  file: File,
+  preset: RasterPdfCompressionPreset,
+  onProgress?: (done: number, total: number) => void,
+) {
+  const pdfjs = await getPdfJs();
+  const sourceBytes = new Uint8Array(await file.arrayBuffer());
+  const source = await pdfjs.getDocument({ data: sourceBytes }).promise;
+  const output = await PDFDocument.create();
+  const settings = getRasterPdfCompressionSettings(preset);
+
+  try {
+    for (let pageNumber = 1; pageNumber <= source.numPages; pageNumber += 1) {
+      const page = await source.getPage(pageNumber);
+      const base = page.getViewport({ scale: 1 });
+      const requestedScale = settings.dpi / 72;
+      const maxPixelScale = Math.sqrt(12_000_000 / Math.max(1, base.width * base.height));
+      const scale = Math.max(0.5, Math.min(requestedScale, maxPixelScale, 4));
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      try {
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) throw new Error("Canvas is not available in this browser.");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: context, viewport }).promise;
+        const jpeg = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("Unable to encode a compressed PDF page."))), "image/jpeg", settings.quality);
+        });
+        canvas.width = 0;
+        canvas.height = 0;
+        const image = await output.embedJpg(await jpeg.arrayBuffer());
+        const outputPage = output.addPage([base.width, base.height]);
+        outputPage.drawImage(image, { x: 0, y: 0, width: base.width, height: base.height });
+      } finally {
+        page.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      onProgress?.(pageNumber, source.numPages);
+      await yieldToBrowser();
+    }
+  } finally {
+    await source.destroy();
+  }
+
+  return bytesToBlob(await output.save({ useObjectStreams: true }), "application/pdf");
 }
 
 export async function renderPdfThumbnails(
@@ -358,6 +491,68 @@ export async function pdfToPngs(file: File, onProgress?: (done: number, total: n
   return results;
 }
 
+export function formatPdfTextItems(items: PdfTextFragment[]) {
+  const lines: string[] = [];
+  let fragments: string[] = [];
+  let previousY: number | undefined;
+
+  const flush = () => {
+    const line = fragments.join(" ").replace(/\s+([,.;:!?%)\]])/g, "$1").replace(/([(\[])\s+/g, "$1").trim();
+    if (line) lines.push(line);
+    fragments = [];
+  };
+
+  for (const item of items) {
+    const y = Number(item.transform?.[5]);
+    const hasPosition = Number.isFinite(y);
+    if (fragments.length && hasPosition && previousY !== undefined && Math.abs(y - previousY) > 2.5) flush();
+
+    const text = item.str.replace(/\s+/g, " ").trim();
+    if (text) fragments.push(text);
+    if (hasPosition) previousY = y;
+    if (item.hasEOL) flush();
+  }
+
+  flush();
+  return lines.join("\n");
+}
+
+export async function extractPdfText(
+  file: File,
+  pageIndices?: number[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<PdfTextPage[]> {
+  const pdfjs = await getPdfJs();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  const selected = pageIndices?.length
+    ? [...new Set(pageIndices)].filter((index) => index >= 0 && index < doc.numPages).sort((a, b) => a - b)
+    : Array.from({ length: doc.numPages }, (_, index) => index);
+
+  if (!selected.length) {
+    await doc.destroy();
+    throw new Error("No valid pages selected.");
+  }
+
+  const results: PdfTextPage[] = [];
+  try {
+    for (let position = 0; position < selected.length; position += 1) {
+      const pageIndex = selected[position];
+      const page = await doc.getPage(pageIndex + 1);
+      const content = await page.getTextContent();
+      const items = content.items.filter((item): item is typeof item & { str: string } => "str" in item);
+      results.push({ pageNumber: pageIndex + 1, text: formatPdfTextItems(items) });
+      page.cleanup();
+      onProgress?.(position + 1, selected.length);
+      await yieldToBrowser();
+    }
+  } finally {
+    await doc.destroy();
+  }
+
+  return results;
+}
+
 export function parsePageRange(input: string, pageCount: number) {
   const indices = new Set<number>();
   input
@@ -396,4 +591,35 @@ function formatDate(value?: Date) {
 
 function yieldToBrowser() {
   return new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+}
+
+export async function signPdf(file: File, options: PdfSignatureOptions): Promise<Blob> {
+  const pdf = await loadPdf(file);
+  const pngBytes = Uint8Array.from(atob(options.imageData.split(",")[1] || options.imageData), (c) => c.charCodeAt(0));
+  const signatureImage = await pdf.embedPng(pngBytes);
+  const pages = pdf.getPages();
+  const totalPages = pages.length;
+
+  let targetIndices: number[];
+  if (options.pages === "last") {
+    targetIndices = [totalPages - 1];
+  } else if (options.pages === "custom" && options.customPages) {
+    targetIndices = parsePageRange(options.customPages, totalPages).map((n) => n - 1);
+  } else {
+    targetIndices = Array.from({ length: totalPages }, (_, i) => i);
+  }
+
+  for (const index of targetIndices) {
+    const page = pages[index];
+    if (!page) continue;
+    const { width: pageW, height: pageH } = page.getSize();
+    const drawW = options.width * pageW;
+    const drawH = options.height * pageH;
+    const drawX = options.x * pageW;
+    const drawY = pageH - (options.y * pageH) - drawH;
+    page.drawImage(signatureImage, { x: drawX, y: drawY, width: drawW, height: drawH });
+  }
+
+  const bytes = await pdf.save();
+  return new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
 }

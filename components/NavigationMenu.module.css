@@ -54,6 +54,8 @@
   background: var(--surface);
   box-shadow: 0 16px 48px rgba(0,0,0,.14);
   animation: megaSlide .18s ease both;
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
 }
 @keyframes megaSlide {
   from { opacity: 0; transform: translateY(-8px); }
@@ -65,11 +67,14 @@
   margin: 0 auto;
   padding: 24px 0 28px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
 }
 
-.megaCol { display: grid; align-content: start; gap: 2px; }
+.megaCol { display: grid; align-content: start; min-width: 0; gap: 2px; }
+.megaDescription { margin: 0 10px 14px; color: var(--muted); font-size: 11px; line-height: 1.5; min-height: 48px; }
+.megaLinks { display: grid; align-content: start; gap: 2px; }
+.megaCol:first-child .megaLinks { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 8px; }
 
 .megaTitle {
   margin: 0 0 8px;
@@ -90,6 +95,7 @@
   font-weight: 500;
   color: var(--text);
   text-decoration: none;
+  overflow-wrap: anywhere;
   transition: background .12s ease, color .12s ease;
 }
 .megaLink:hover {

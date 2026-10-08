@@ -63,7 +63,7 @@ export default function NavigationMenu({ language, variant = "desktop" }: Props)
     });
   };
 
-  /* --- Desktop Mega Menu (4 sleek columns across top bar from 76c5255) --- */
+  /* One shared PDF / Image / General taxonomy on desktop and mobile. */
   const desktopDropdown = (
     <div
       id="fastfiles-tool-menu"
@@ -80,36 +80,36 @@ export default function NavigationMenu({ language, variant = "desktop" }: Props)
           return (
             <div key={cat.key} className={styles.megaCol}>
               <h3 className={styles.megaTitle}>{language === "th" ? cat.th : cat.en}</h3>
-              {catTools.map((tool) => (
-                <Link
-                  key={tool.id}
-                  href={`/tools/${tool.id}`}
-                  className={`${styles.megaLink} ${pathname === `/tools/${tool.id}` ? styles.activeLink : ""}`}
-                  onClick={() => setOpen(false)}
-                >
-                  {language === "th" ? tool.thai : tool.label}
-                </Link>
-              ))}
+              <p className={styles.megaDescription}>{language === "th" ? cat.descriptionTh : cat.descriptionEn}</p>
+              <div className={styles.megaLinks}>
+                {catTools.map((tool) => (
+                  <Link
+                    key={tool.id}
+                    href={`/tools/${tool.id}`}
+                    className={`${styles.megaLink} ${pathname === `/tools/${tool.id}` ? styles.activeLink : ""}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    {language === "th" ? tool.thai : tool.label}
+                  </Link>
+                ))}
+                {cat.key === "general" && (
+                  <Link
+                    data-testid="nav-qr-generator"
+                    href="/qr"
+                    className={`${styles.megaLink} ${pathname === "/qr" ? styles.activeLink : ""}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    {qrLabel}
+                  </Link>
+                )}
+              </div>
             </div>
           );
         })}
-        <div className={styles.megaCol}>
-          <h3 className={styles.megaTitle}>QR Code</h3>
-          <Link
-            data-testid="nav-qr-generator"
-            href="/qr"
-            className={`${styles.megaLink} ${pathname === "/qr" ? styles.activeLink : ""}`}
-            onClick={() => setOpen(false)}
-          >
-            {qrLabel}
-          </Link>
-        </div>
       </div>
     </div>
   );
 
-  /* --- Mobile accordion dropdown (from 76c5255) --- */
-  const isQrExpanded = !collapsedCats.has("qr");
   const mobileDropdown = (
     <div
       id="fastfiles-tool-menu-mobile"
@@ -138,6 +138,7 @@ export default function NavigationMenu({ language, variant = "desktop" }: Props)
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <path d="M6 9l6 6 6-6" />
               </svg>
@@ -154,42 +155,21 @@ export default function NavigationMenu({ language, variant = "desktop" }: Props)
                     {language === "th" ? tool.thai : tool.label}
                   </Link>
                 ))}
+                {cat.key === "general" && (
+                  <Link
+                    data-testid="nav-qr-generator"
+                    href="/qr"
+                    className={pathname === "/qr" ? styles.activeLink : ""}
+                    onClick={() => setOpen(false)}
+                  >
+                    {qrLabel}
+                  </Link>
+                )}
               </div>
             )}
           </div>
         );
       })}
-      <div className={styles.catGroup}>
-        <button
-          type="button"
-          className={styles.catHeader}
-          onClick={() => toggleCat("qr")}
-          aria-expanded={isQrExpanded}
-        >
-          <span>QR Code</span>
-          <svg
-            className={`${styles.chevron} ${isQrExpanded ? styles.chevronOpen : ""}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </button>
-        {isQrExpanded && (
-          <div className={styles.catLinks}>
-            <Link
-              data-testid="nav-qr-generator"
-              href="/qr"
-              className={pathname === "/qr" ? styles.activeLink : ""}
-              onClick={() => setOpen(false)}
-            >
-              {qrLabel}
-            </Link>
-          </div>
-        )}
-      </div>
     </div>
   );
 

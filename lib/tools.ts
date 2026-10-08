@@ -60,16 +60,44 @@ export const TOOLS: ToolDefinition[] = [
 export const ALL_TOOLS: ToolDefinition[] = [...TOOLS, ...LEGACY_IMAGE_TOOLS];
 
 export type ToolCategory = {
-  key: string;
+  key: "pdf" | "image" | "general";
   en: string;
   th: string;
+  descriptionEn: string;
+  descriptionTh: string;
   toolIds: ToolId[];
 };
 
+/** One shared taxonomy for the homepage and desktop/mobile navigation. */
 export const TOOL_CATEGORIES: ToolCategory[] = [
-  { key: "edit", en: "Edit & Organize", th: "แก้ไขและจัดการ", toolIds: ["merge-pdf", "compress-pdf", "organize-pdf", "rotate-pdf", "split-pdf", "image-convert"] },
-  { key: "convert", en: "Convert", th: "แปลงไฟล์", toolIds: ["images-to-pdf", "pdf-to-images", "html-to-pdf", "pdf-to-html", "word-to-pdf", "pdf-to-word"] },
-  { key: "enhance", en: "Enhance", th: "เพิ่มเติม", toolIds: ["page-numbers", "watermark", "pdf-sign", "pdf-text", "pdf-metadata"] },
+  {
+    key: "pdf",
+    en: "PDF Tools",
+    th: "เครื่องมือจัดการไฟล์ PDF",
+    descriptionEn: "Merge, split, compress scanned PDFs and convert between PDF and Word. Preserve the original layout wherever possible.",
+    descriptionTh: "รวม แยกหน้า บีบอัด PDF สแกน และแปลงระหว่าง PDF กับ Word โดยพยายามคงรูปแบบเอกสารต้นฉบับให้มากที่สุด",
+    toolIds: [
+      "merge-pdf", "split-pdf", "compress-pdf", "organize-pdf", "rotate-pdf",
+      "word-to-pdf", "pdf-to-word", "images-to-pdf", "pdf-to-images",
+      "page-numbers", "pdf-sign", "pdf-text", "pdf-metadata",
+    ],
+  },
+  {
+    key: "image",
+    en: "Image Tools",
+    th: "เครื่องมือจัดการรูปภาพ",
+    descriptionEn: "Convert formats, resize and compress images for websites or sharing, with a separate watermark tool.",
+    descriptionTh: "แปลงนามสกุล ปรับขนาด และบีบอัดรูปภาพสำหรับเว็บไซต์หรือส่งต่อ พร้อมเครื่องมือใส่ลายน้ำ",
+    toolIds: ["image-convert", "watermark"],
+  },
+  {
+    key: "general",
+    en: "Everyday File Tools",
+    th: "เครื่องมือจัดการไฟล์ทั่วไป",
+    descriptionEn: "Everyday HTML conversion and QR code utilities that help you finish tasks in fewer steps.",
+    descriptionTh: "เครื่องมือแปลงเอกสาร HTML และสร้าง QR Code สำหรับงานทั่วไป ช่วยลดขั้นตอนที่ไม่จำเป็น",
+    toolIds: ["html-to-pdf", "pdf-to-html"],
+  },
 ];
 
 export function kindOf(file: File): "pdf" | "image" | "html" | "docx" | "unsupported" {

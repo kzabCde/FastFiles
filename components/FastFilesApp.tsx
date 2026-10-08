@@ -31,8 +31,8 @@ const copy = {
     detected: "Files ready",
     clear: "Clear",
     browse: "Browse files",
-    popular: "Popular tools",
-    popularSub: "Everyday PDF, image and QR work, without the clutter.",
+    popular: "Explore tools",
+    popularSub: "Find the right tool in one of three clear categories.",
     mixed: "Mixed PDF and image selections do not share a safe action yet. Remove a type or add matching files.",
     noReady: "Remove unavailable files before choosing a tool.",
     workload: "Large workload",
@@ -55,8 +55,8 @@ const copy = {
     detected: "ไฟล์พร้อมแล้ว",
     clear: "ล้าง",
     browse: "เลือกไฟล์",
-    popular: "เครื่องมือยอดนิยม",
-    popularSub: "งาน PDF รูปภาพ และ QR Code ที่ใช้บ่อย โดยไม่เพิ่มขั้นตอนเกินจำเป็น",
+    popular: "เลือกเครื่องมือที่ต้องการ",
+    popularSub: "แบ่งเครื่องมือออกเป็น 3 กลุ่ม เพื่อให้ค้นหาและเริ่มใช้งานได้ง่ายขึ้น",
     mixed: "ไฟล์ PDF และรูปภาพที่เลือกพร้อมกันยังไม่มีเครื่องมือร่วมที่ปลอดภัย กรุณาลบหนึ่งประเภทหรือเพิ่มไฟล์ชนิดเดียวกัน",
     noReady: "กรุณาลบไฟล์ที่ใช้ไม่ได้ก่อนเลือกเครื่องมือ",
     workload: "งานขนาดใหญ่",
@@ -76,11 +76,11 @@ const toolDescriptions: Record<ToolDefinition["id"], Record<Language, string>> =
   "pdf-text": { en: "Extract selectable PDF text as a local TXT file", th: "ดึงข้อความที่เลือกได้จาก PDF เป็นไฟล์ TXT" },
   "pdf-to-html": { en: "Export PDF pages as an offline visual web document", th: "แปลงหน้า PDF เป็นเว็บออฟไลน์ที่คงหน้าตาเดิม" },
   "html-to-pdf": { en: "Turn safe local HTML into a downloadable PDF", th: "แปลง HTML ที่ตรวจสอบแล้วเป็น PDF ในเครื่อง" },
-  "word-to-pdf": { en: "Convert DOCX documents to PDF locally", th: "แปลงเอกสาร DOCX เป็น PDF ในเครื่อง" },
-  "pdf-to-word": { en: "Rebuild text-based PDFs as editable DOCX", th: "สร้าง PDF ที่มีข้อความกลับเป็น DOCX ที่แก้ไขได้" },
+  "word-to-pdf": { en: "Convert DOCX to PDF, keeping document layout where possible", th: "แปลง DOCX เป็น PDF โดยพยายามรักษารูปแบบต้นฉบับ" },
+  "pdf-to-word": { en: "Choose a visually preserved or editable Word document", th: "เลือกแปลงเป็น Word แบบคงหน้าตาเดิมหรือแก้ไขข้อความได้" },
   "images-to-pdf": { en: "Turn JPG, PNG and WebP into PDF", th: "รวม JPG, PNG และ WebP เป็น PDF" },
   "pdf-to-images": { en: "Export PDF pages as PNG images", th: "แปลงหน้า PDF ออกเป็น PNG" },
-  "image-convert": { en: "Convert JPG, PNG, WebP and supported AVIF", th: "แปลง JPG, PNG, WebP และ AVIF เมื่อเบราว์เซอร์รองรับ" },
+  "image-convert": { en: "Convert formats, resize and compress images in one editor", th: "แปลงนามสกุล ปรับขนาด และบีบอัดภาพในเครื่องมือเดียว" },
   "image-resize": { en: "Resize one image or a whole batch", th: "ปรับขนาดรูปเดี่ยวหรือหลายรูปพร้อมกัน" },
   "image-compress": { en: "Reduce image size for web and sharing", th: "ลดขนาดรูปสำหรับเว็บและการแชร์" },
   watermark: { en: "Add a clean text watermark to files", th: "เพิ่มลายน้ำข้อความให้ PDF หรือรูปภาพ" },
@@ -355,7 +355,7 @@ export default function FastFilesApp() {
         {query ? (
           <div className="tool-card-grid">
             {searchResults.map((tool) => <ToolButton key={tool.id} tool={tool} language={language} onClick={() => openTool(tool)} />)}
-            {qrMatches && <button className="tool-card" onClick={() => setActiveQr(true)} aria-label={language === "th" ? "สร้าง QR Code" : "QR Generator"}><div className="tool-card-top"><span className="tool-icon"><QrGlyph /></span></div><div><strong className="tool-name">{language === "th" ? "สร้าง QR Code" : "QR Generator"}</strong><p>{language === "th" ? "สร้าง QR จากข้อความ ลิงก์ Wi-Fi อีเมล โทรศัพท์ และ SMS" : "Create QR codes for text, URLs, Wi-Fi, email, phone and SMS."}</p></div><span className="tool-code">QR · LOCAL</span></button>}
+            {qrMatches && <QrToolButton language={language} onClick={() => setActiveQr(true)} />}
           </div>
         ) : (
           <>
@@ -364,10 +364,13 @@ export default function FastFilesApp() {
               if (!categoryTools.length) return null;
               return (
                 <div key={category.key} className="tool-category">
-                  <h3 className="tool-category-title">{language === "th" ? category.th : category.en}</h3>
+                  <div className="tool-category-heading">
+                    <h3 className="tool-category-title">{language === "th" ? category.th : category.en}</h3>
+                    <p className="tool-category-description">{language === "th" ? category.descriptionTh : category.descriptionEn}</p>
+                  </div>
                   <div className="tool-card-grid">
                     {categoryTools.map((tool) => <ToolButton key={tool.id} tool={tool} language={language} onClick={() => openTool(tool)} />)}
-                    {category.key === "enhance" && <button className="tool-card" onClick={() => setActiveQr(true)} aria-label={language === "th" ? "สร้าง QR Code" : "QR Generator"}><div className="tool-card-top"><span className="tool-icon"><QrGlyph /></span></div><div><strong className="tool-name">{language === "th" ? "สร้าง QR Code" : "QR Generator"}</strong><p>{language === "th" ? "สร้าง QR จากข้อความ ลิงก์ Wi-Fi อีเมล" : "Create QR codes for text, URLs, Wi-Fi, email."}</p></div><span className="tool-code">QR · LOCAL</span></button>}
+                    {category.key === "general" && <QrToolButton language={language} onClick={() => setActiveQr(true)} />}
                   </div>
                 </div>
               );
@@ -389,6 +392,19 @@ export default function FastFilesApp() {
 
 function ToolButton({ tool, language, onClick, disabled = false }: { tool: ToolDefinition; language: Language; onClick: () => void; disabled?: boolean }) {
   return <button className="tool-card" onClick={onClick} disabled={disabled}><div className="tool-card-top"><span className="tool-icon"><ToolGlyph id={tool.id} /></span></div><div><strong className="tool-name">{language === "th" ? tool.thai : tool.label}</strong><p>{toolDescriptions[tool.id][language]}</p></div><span className="tool-code">{tool.short}</span></button>;
+}
+
+function QrToolButton({ language, onClick }: { language: Language; onClick: () => void }) {
+  return (
+    <button className="tool-card" onClick={onClick} aria-label={language === "th" ? "สร้าง QR Code" : "QR Generator"}>
+      <div className="tool-card-top"><span className="tool-icon"><QrGlyph /></span></div>
+      <div>
+        <strong className="tool-name">{language === "th" ? "สร้าง QR Code" : "QR Generator"}</strong>
+        <p>{language === "th" ? "สร้าง QR จากข้อความ ลิงก์ Wi-Fi อีเมล โทรศัพท์ และ SMS" : "Create QR codes for text, URLs, Wi-Fi, email, phone and SMS."}</p>
+      </div>
+      <span className="tool-code">QR · LOCAL</span>
+    </button>
+  );
 }
 
 function FastFilesMark() {

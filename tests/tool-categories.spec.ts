@@ -9,7 +9,7 @@ test("homepage displays three groups and preserves tool discovery in Thai and En
   await expect(groups.nth(0).getByRole("button", { name: /Word to PDF/i })).toBeVisible();
   await expect(groups.nth(1).getByRole("button", { name: /Image Editor/i })).toBeVisible();
   await expect(groups.nth(2).getByRole("button", { name: "QR Generator" })).toBeVisible();
-  await expect(page.locator("#tools .tool-card")).toHaveCount(19 - 1);
+  await expect(page.locator("#tools .tool-card")).toHaveCount(18);
 
   await page.getByRole("button", { name: "TH", exact: true }).click();
   await expect(groups.locator("h3")).toHaveText([

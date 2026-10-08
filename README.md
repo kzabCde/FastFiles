@@ -44,7 +44,8 @@ This acceleration remains fully local to the browser and does not upload images.
 ### Grouped navigation
 
 - The burger opens a responsive dropdown below the header.
-- Tools are grouped into **File Tools**, **Image Tools** and **QR Code**.
+- The homepage and desktop/mobile menus share exactly three categories: **PDF Tools**, **Image Tools** and **Everyday File Tools**.
+- PDF tools include merging, extracting, scanned-PDF compression and Word conversion; image conversion, resizing and compression remain consolidated in Image Editor; HTML converters and QR Generator appear under Everyday File Tools.
 - File/image menu entries open dedicated website routes instead of an in-page drawer workspace.
 - The homepage universal drag/drop workflow remains available.
 - Privacy and About remain reachable from the dropdown.
